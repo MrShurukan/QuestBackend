@@ -1,0 +1,29 @@
+# Build
+bin/
+obj/
+artifacts/
+TestResults/
+coverage/
+
+# User-specific files
+*.user
+*.suo
+*.userprefs
+*.tmp
+*.log
+
+# Rider / VS / VS Code
+.idea/
+.vs/
+.vscode/
+
+# Environment
+.env
+
+# ASP.NET Core
+Properties/launchSettings.json
+
+# Tooling
+.DS_Store
+*.nupkg
+*.snupkg

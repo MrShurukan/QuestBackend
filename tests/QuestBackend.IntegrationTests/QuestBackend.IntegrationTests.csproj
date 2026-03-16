@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\QuestBackend.Api\QuestBackend.Api.csproj" />
+    <ProjectReference Include="..\..\src\QuestBackend.Infrastructure\QuestBackend.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\QuestBackend.Application\QuestBackend.Application.csproj" />
+    <ProjectReference Include="..\..\src\QuestBackend.Domain\QuestBackend.Domain.csproj" />
+    <ProjectReference Include="..\..\src\QuestBackend.Contracts\QuestBackend.Contracts.csproj" />
+  </ItemGroup>
+</Project>
