@@ -6,12 +6,14 @@ public static class PublicQrEndpoints
 {
     public static IEndpointRouteBuilder MapPublicQrEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet(
-            "/q/{slug}",
-            async (string slug, QuestionGameService service, CancellationToken cancellationToken) =>
-            {
-                return Results.Ok(await service.ResolveQrScanAsync(slug, cancellationToken));
-            })
+        RouteGroupBuilder group = app.MapGroup("/api/public");
+
+        group.MapGet(
+                "/qr/{slug}",
+                async (string slug, QuestionGameService service, CancellationToken cancellationToken) =>
+                {
+                    return Results.Ok(await service.ResolveQrScanAsync(slug, cancellationToken));
+                })
             .RequireRateLimiting(Common.RateLimiting.PublicQrPolicy);
 
         return app;

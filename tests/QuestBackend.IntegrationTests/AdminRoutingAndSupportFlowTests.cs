@@ -44,7 +44,7 @@ public sealed class AdminRoutingAndSupportFlowTests
         List<RoutingPreviewRowResponse> previewAfterOverride = (await previewAfterOverrideResponse.Content.ReadFromJsonAsync<List<RoutingPreviewRowResponse>>())!;
         previewAfterOverride.Should().Contain(x => x.QrSlug == config.BlueSlug && x.QuestionId == config.BlueQuestionId && x.ResolutionMode.Contains("Override", StringComparison.OrdinalIgnoreCase));
 
-        await participantClient.GetAsync($"/q/{config.BlueSlug}");
+        await participantClient.GetAsync($"/api/public/qr/{config.BlueSlug}");
         var team = await factory.GetTeamByNameAsync("TeamOps");
 
         HttpResponseMessage solveResponse = await adminClient.PostAsJsonAsync(

@@ -24,10 +24,10 @@ public sealed class QuestDayLifecycleFlowTests
         await participantClient.PostAsJsonAsync("/api/teams", new CreateTeamRequest("TeamDay", "secret"));
 
         await adminClient.PostAsync("/api/admin/quest-day/start", null);
-        await participantClient.GetAsync($"/q/{config.RedSlug}");
+        await participantClient.GetAsync($"/api/public/qr/{config.RedSlug}");
         await adminClient.PostAsync("/api/admin/quest-day/finish", null);
 
-        QrResolutionResponse scanAfterFinish = (await (await participantClient.GetAsync($"/q/{config.BlueSlug}")).Content.ReadFromJsonAsync<QrResolutionResponse>())!;
+        QrResolutionResponse scanAfterFinish = (await (await participantClient.GetAsync($"/api/public/qr/{config.BlueSlug}")).Content.ReadFromJsonAsync<QrResolutionResponse>())!;
         scanAfterFinish.State.Should().Be("day_closed");
 
         SubmitAnswerResponse answerAfterFinish = (await (await participantClient.PostAsJsonAsync($"/api/questions/{config.RedQuestionId}/answers", new SubmitAnswerRequest("ENIGMA"))).Content.ReadFromJsonAsync<SubmitAnswerResponse>())!;

@@ -71,6 +71,11 @@ dotnet test QuestBackend.sln
 
 Operational notes live in `docs/runbook.md`.
 
+## Public QR API
+
+- QR resolution JSON is exposed by the backend at `/api/public/qr/{slug}`.
+- The browser route `/q/{slug}` is expected to be served by the frontend application.
+
 ## Solution
 
 - `src/QuestBackend.Api`

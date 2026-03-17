@@ -75,7 +75,8 @@ dotnet ef database update --project src/QuestBackend.Infrastructure --startup-pr
 ## Operational Notes
 
 - `Start quest` and `Finish day` are server-side lifecycle operations and gate scans, answers and enigma attempts.
-- Public QR entrypoint is `/q/{slug}`.
+- Public QR API entrypoint is `/api/public/qr/{slug}`.
+- Browser QR route `/q/{slug}` should be owned by the frontend application.
 - Backend is the source of truth for cooldowns and timestamps.
 - Support corrections and configuration changes are written to audit storage.
 

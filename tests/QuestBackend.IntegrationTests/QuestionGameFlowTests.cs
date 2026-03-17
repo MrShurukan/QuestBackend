@@ -22,7 +22,7 @@ public sealed class QuestionGameFlowTests
         await factory.LoginParticipantAsync(client, "player-1", "Player");
         await client.PostAsJsonAsync("/api/teams", new CreateTeamRequest("TeamOne", "secret"));
 
-        HttpResponseMessage scanResponse = await client.GetAsync($"/q/{config.BlueSlug}");
+        HttpResponseMessage scanResponse = await client.GetAsync($"/api/public/qr/{config.BlueSlug}");
         scanResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         QrResolutionResponse scan = (await scanResponse.Content.ReadFromJsonAsync<QrResolutionResponse>())!;
         scan.State.Should().Be("resolved");
