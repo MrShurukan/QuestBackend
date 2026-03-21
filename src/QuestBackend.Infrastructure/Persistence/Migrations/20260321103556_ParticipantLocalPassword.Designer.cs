@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using QuestBackend.Infrastructure.Persistence;
@@ -12,9 +13,11 @@ using QuestBackend.Infrastructure.Persistence;
 namespace QuestBackend.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(QuestDbContext))]
-    partial class QuestDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260321103556_ParticipantLocalPassword")]
+    partial class ParticipantLocalPassword
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -192,9 +195,6 @@ namespace QuestBackend.Infrastructure.Persistence.Migrations
                     b.Property<string>("FlagsJson")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<int>("MaxTeamMembers")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Timezone")
                         .IsRequired()

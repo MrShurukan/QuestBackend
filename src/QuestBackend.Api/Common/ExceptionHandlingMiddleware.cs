@@ -28,7 +28,7 @@ public sealed class ExceptionHandlingMiddleware
         catch (Exception exception)
         {
             _logger.LogError(exception, "Unhandled exception for request {Path}", context.Request.Path);
-            await WriteProblemAsync(context, StatusCodes.Status500InternalServerError, "Unexpected server error.");
+            await WriteProblemAsync(context, StatusCodes.Status500InternalServerError, "Внутренняя ошибка сервера.");
         }
     }
 
@@ -39,7 +39,7 @@ public sealed class ExceptionHandlingMiddleware
 
         object problem = new
         {
-            title = ReasonPhrases.GetReasonPhrase(statusCode),
+            title = TitleRu(statusCode),
             status = statusCode,
             detail,
             traceId = context.TraceIdentifier,
@@ -47,4 +47,18 @@ public sealed class ExceptionHandlingMiddleware
 
         await context.Response.WriteAsync(JsonSerializer.Serialize(problem));
     }
+
+    private static string TitleRu(int statusCode) =>
+        statusCode switch
+        {
+            StatusCodes.Status400BadRequest => "Некорректный запрос",
+            StatusCodes.Status401Unauthorized => "Требуется авторизация",
+            StatusCodes.Status403Forbidden => "Доступ запрещён",
+            StatusCodes.Status404NotFound => "Не найдено",
+            StatusCodes.Status409Conflict => "Конфликт",
+            StatusCodes.Status422UnprocessableEntity => "Не удалось обработать",
+            StatusCodes.Status429TooManyRequests => "Слишком много запросов",
+            StatusCodes.Status500InternalServerError => "Внутренняя ошибка сервера",
+            _ => ReasonPhrases.GetReasonPhrase(statusCode),
+        };
 }

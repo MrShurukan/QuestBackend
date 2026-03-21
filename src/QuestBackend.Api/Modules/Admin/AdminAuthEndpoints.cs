@@ -3,6 +3,7 @@ using QuestBackend.Api.Common;
 using QuestBackend.Application.Admin;
 using QuestBackend.Application.Shared;
 using QuestBackend.Contracts;
+using QuestBackend.Domain.Admin;
 
 namespace QuestBackend.Api.Modules.Admin;
 
@@ -31,6 +32,19 @@ public static class AdminAuthEndpoints
                 {
                     AuthenticatedAdminResponse? admin = await service.GetCurrentAsync(cancellationToken);
                     return admin is null ? Results.Unauthorized() : Results.Ok(admin);
+                })
+            .RequireAuthorization(ApiPolicies.AdminOnly);
+
+        group.MapPut(
+                "/profile",
+                async (AdminSelfProfileUpdateRequest request, AdminUsersService usersService, HttpContext httpContext, CancellationToken cancellationToken) =>
+                {
+                    AdminUser admin = await usersService.UpdateMyProfileAsync(request, cancellationToken);
+                    await httpContext.SignInAsync(
+                        QuestAuthConstants.AdminScheme,
+                        AuthPrincipalFactory.CreateAdminPrincipal(admin));
+
+                    return Results.Ok(AdminAuthService.ToResponse(admin));
                 })
             .RequireAuthorization(ApiPolicies.AdminOnly);
 

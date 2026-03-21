@@ -23,6 +23,8 @@ public sealed class QuestBackendApiFactory : WebApplicationFactory<Program>, IAs
 {
     private readonly string _adminLogin = $"admin-{Guid.NewGuid():N}";
     private readonly string _adminPassword = "admin123";
+
+    public string AdminLogin => _adminLogin;
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:17")
         .WithImage("postgres:17")
         .WithDatabase($"quest_backend_tests_{Guid.NewGuid():N}")
@@ -231,9 +233,13 @@ public sealed class QuestBackendApiFactory : WebApplicationFactory<Program>, IAs
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task LoginParticipantAsync(HttpClient client, string subject, string displayName)
+    public async Task RegisterParticipantAsync(HttpClient client, string login, string displayName, string password = "Testpass12")
     {
-        HttpResponseMessage response = await client.PostAsJsonAsync("/api/participant/auth/dev-login", new DevParticipantLoginRequest(subject, displayName, null));
+        using MultipartFormDataContent content = new();
+        content.Add(new StringContent(login), "login");
+        content.Add(new StringContent(displayName), "displayName");
+        content.Add(new StringContent(password), "password");
+        HttpResponseMessage response = await client.PostAsync("/api/participant/auth/register", content);
         response.EnsureSuccessStatusCode();
     }
 }

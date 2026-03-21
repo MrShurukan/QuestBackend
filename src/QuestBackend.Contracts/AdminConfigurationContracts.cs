@@ -102,6 +102,7 @@ public sealed record EnigmaProfileResponse(
 public sealed record GlobalSettingsUpdateRequest(
     int AnswerCooldownMinutes,
     int EnigmaCooldownMinutes,
+    int MaxTeamMembers,
     string DefaultAnswerNormalization,
     Guid? CurrentQuestDayStateId,
     Guid? CurrentRoutingProfileId,
@@ -113,6 +114,7 @@ public sealed record GlobalSettingsResponse(
     Guid Id,
     int AnswerCooldownMinutes,
     int EnigmaCooldownMinutes,
+    int MaxTeamMembers,
     string DefaultAnswerNormalization,
     Guid? CurrentQuestDayStateId,
     Guid? CurrentRoutingProfileId,

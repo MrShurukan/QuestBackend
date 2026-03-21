@@ -20,7 +20,7 @@ public sealed class QuestDayLifecycleFlowTests
         HttpClient participantClient = factory.CreateCookieClient();
 
         await factory.LoginAdminAsync(adminClient);
-        await factory.LoginParticipantAsync(participantClient, "player-1", "Player");
+        await factory.RegisterParticipantAsync(participantClient, "player-1", "Player");
         await participantClient.PostAsJsonAsync("/api/teams", new CreateTeamRequest("TeamDay", "secret"));
 
         await adminClient.PostAsync("/api/admin/quest-day/start", null);

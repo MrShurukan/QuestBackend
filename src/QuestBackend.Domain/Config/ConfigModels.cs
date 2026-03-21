@@ -8,6 +8,8 @@ public sealed class GlobalSettings : EntityBase
 
     public int EnigmaCooldownMinutes { get; set; } = 5;
 
+    public int MaxTeamMembers { get; set; } = 4;
+
     public string DefaultAnswerNormalization { get; set; } = "{\"trimWhitespace\":true,\"ignoreCase\":true,\"collapseInnerWhitespace\":true}";
 
     public Guid? CurrentQuestDayStateId { get; set; }

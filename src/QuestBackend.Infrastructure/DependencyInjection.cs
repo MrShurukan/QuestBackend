@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IExternalParticipantAuthProvider, DisabledExternalParticipantAuthProvider>();
 
         services.AddScoped<AdminAuthService>();
+        services.AddScoped<AdminUsersService>();
         services.AddScoped<AdminConfigurationService>();
         services.AddScoped<ParticipantAuthService>();
         services.AddScoped<TeamService>();

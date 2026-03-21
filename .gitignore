@@ -27,3 +27,7 @@ Properties/launchSettings.json
 .DS_Store
 *.nupkg
 *.snupkg
+
+# Uploaded participant avatars (directory kept via .gitkeep)
+src/QuestBackend.Api/wwwroot/uploads/avatars/*
+!src/QuestBackend.Api/wwwroot/uploads/avatars/.gitkeep

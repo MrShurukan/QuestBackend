@@ -11,6 +11,8 @@ public sealed class ParticipantUser : EntityBase
 
     public string DisplayName { get; set; } = string.Empty;
 
+    public string? PasswordHash { get; set; }
+
     public string? AvatarUrl { get; set; }
 
     public DateTimeOffset? LastSeenAt { get; set; }

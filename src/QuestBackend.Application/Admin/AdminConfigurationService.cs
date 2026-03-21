@@ -589,9 +589,15 @@ public sealed class AdminConfigurationService
 
     public async Task<GlobalSettingsResponse> UpdateGlobalSettingsAsync(GlobalSettingsUpdateRequest request, CancellationToken cancellationToken = default)
     {
+        if (request.MaxTeamMembers is < 1 or > 100)
+        {
+            throw new AppException(400, "Лимит участников команды должен быть от 1 до 100.");
+        }
+
         GlobalSettings settings = await GetOrCreateGlobalSettingsAsync(cancellationToken);
         settings.AnswerCooldownMinutes = request.AnswerCooldownMinutes;
         settings.EnigmaCooldownMinutes = request.EnigmaCooldownMinutes;
+        settings.MaxTeamMembers = request.MaxTeamMembers;
         settings.DefaultAnswerNormalization = request.DefaultAnswerNormalization;
         settings.CurrentQuestDayStateId = request.CurrentQuestDayStateId;
         settings.CurrentRoutingProfileId = request.CurrentRoutingProfileId;
@@ -805,6 +811,7 @@ public sealed class AdminConfigurationService
             settings.Id,
             settings.AnswerCooldownMinutes,
             settings.EnigmaCooldownMinutes,
+            settings.MaxTeamMembers,
             settings.DefaultAnswerNormalization,
             settings.CurrentQuestDayStateId,
             settings.CurrentRoutingProfileId,

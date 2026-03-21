@@ -1,8 +1,8 @@
+using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using QuestBackend.Contracts;
 using QuestBackend.IntegrationTests.Infrastructure;
-
 namespace QuestBackend.IntegrationTests;
 
 public sealed class AdminRoutingAndSupportFlowTests
@@ -21,7 +21,7 @@ public sealed class AdminRoutingAndSupportFlowTests
         HttpClient participantClient = factory.CreateCookieClient();
 
         await factory.LoginAdminAsync(adminClient);
-        await factory.LoginParticipantAsync(participantClient, "player-1", "Player");
+        await factory.RegisterParticipantAsync(participantClient, "player-1", "Player");
         await participantClient.PostAsJsonAsync("/api/teams", new CreateTeamRequest("TeamOps", "secret"));
 
         HttpResponseMessage previewBeforeResponse = await adminClient.GetAsync("/api/admin/routing/preview");
@@ -55,5 +55,39 @@ public sealed class AdminRoutingAndSupportFlowTests
         HttpResponseMessage detailsResponse = await adminClient.GetAsync($"/api/admin/support/teams/{team.Id}");
         TeamSupportDetailsResponse details = (await detailsResponse.Content.ReadFromJsonAsync<TeamSupportDetailsResponse>())!;
         details.Questions.Should().Contain(x => x.Id == config.BlueQuestionId && x.IsSolved);
+    }
+
+    [Fact]
+    public async Task Admin_ShouldResetLocalParticipantPassword()
+    {
+        await using QuestBackendApiFactory factory = new();
+        await factory.InitializeAsync();
+        await factory.ResetDatabaseAsync();
+
+        HttpClient adminClient = factory.CreateCookieClient();
+        HttpClient participantClient = factory.CreateCookieClient();
+
+        await factory.LoginAdminAsync(adminClient);
+        await factory.RegisterParticipantAsync(participantClient, "reset-me", "Reset User", "Oldpass12");
+
+        ParticipantProfileResponse? me = await participantClient.GetFromJsonAsync<ParticipantProfileResponse>("/api/participant/auth/me");
+        me.Should().NotBeNull();
+
+        HttpResponseMessage resetResponse = await adminClient.PostAsJsonAsync(
+            $"/api/admin/support/participants/{me!.Id}/password",
+            new ParticipantPasswordResetRequest("Newpass12", "support reset"));
+        resetResponse.EnsureSuccessStatusCode();
+
+        await participantClient.PostAsync("/api/participant/auth/logout", null);
+
+        HttpResponseMessage oldLogin = await participantClient.PostAsJsonAsync(
+            "/api/participant/auth/login",
+            new ParticipantLoginRequest("reset-me", "Oldpass12"));
+        oldLogin.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        HttpResponseMessage newLogin = await participantClient.PostAsJsonAsync(
+            "/api/participant/auth/login",
+            new ParticipantLoginRequest("reset-me", "Newpass12"));
+        newLogin.EnsureSuccessStatusCode();
     }
 }

@@ -148,7 +148,7 @@ public sealed class QuestionGameService
             .Include(x => x.Question)
             .ThenInclude(x => x.Tag)
             .SingleOrDefaultAsync(x => x.TeamId == team.Id && x.QuestionId == questionId, cancellationToken)
-            ?? throw new AppException(404, "Question is not unlocked for the team.");
+            ?? throw new AppException(404, "Вопрос не открыт для этой команды.");
 
         return ToQuestionDetailsResponse(state);
     }
@@ -172,7 +172,7 @@ public sealed class QuestionGameService
             .Include(x => x.Question)
             .ThenInclude(x => x.Tag)
             .SingleOrDefaultAsync(x => x.TeamId == team.Id && x.QuestionId == questionId, cancellationToken)
-            ?? throw new AppException(404, "Question is not unlocked for the team.");
+            ?? throw new AppException(404, "Вопрос не открыт для этой команды.");
 
         if (state.IsSolved)
         {
@@ -299,7 +299,7 @@ public sealed class QuestionGameService
     private async Task<Team> EnsureCurrentTeamAsync(CancellationToken cancellationToken)
     {
         Team? team = await _teamService.GetCurrentParticipantTeamEntityAsync(cancellationToken);
-        return team ?? throw new AppException(409, "Participant must belong to an active team.");
+        return team ?? throw new AppException(409, "Нужно состоять в активной команде.");
     }
 
     private async Task<GlobalSettings> GetGlobalSettingsAsync(CancellationToken cancellationToken)

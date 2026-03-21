@@ -13,4 +13,11 @@ public sealed record TeamSummaryResponse(
     bool IsDisqualified,
     IReadOnlyList<TeamMemberResponse> Members);
 
-public sealed record TeamMemberResponse(Guid MembershipId, Guid ParticipantId, string DisplayName, string Status, DateTimeOffset JoinedAt);
+public sealed record TeamMemberResponse(
+    Guid MembershipId,
+    Guid ParticipantId,
+    string DisplayName,
+    string Status,
+    DateTimeOffset JoinedAt,
+    string? AvatarUrl,
+    string Provider);

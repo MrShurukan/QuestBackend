@@ -28,6 +28,7 @@ internal sealed class ParticipantUserConfiguration : IEntityTypeConfiguration<Pa
         builder.Property(x => x.Provider).HasMaxLength(100).IsRequired();
         builder.Property(x => x.ProviderSubject).HasMaxLength(200).IsRequired();
         builder.Property(x => x.DisplayName).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.PasswordHash).HasMaxLength(500);
         builder.Property(x => x.AvatarUrl).HasMaxLength(1000);
         builder.Property(x => x.Version).IsConcurrencyToken();
         builder.HasIndex(x => new { x.Provider, x.ProviderSubject }).IsUnique();

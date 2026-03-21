@@ -153,7 +153,7 @@ public sealed class EnigmaService
     private async Task<Team> EnsureCurrentTeamAsync(CancellationToken cancellationToken)
     {
         Team? team = await _teamService.GetCurrentParticipantTeamEntityAsync(cancellationToken);
-        return team ?? throw new AppException(409, "Participant must belong to an active team.");
+        return team ?? throw new AppException(409, "Нужно состоять в активной команде.");
     }
 
     private async Task<EnigmaProfile> GetCurrentProfileAsync(CancellationToken cancellationToken)

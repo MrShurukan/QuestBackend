@@ -42,7 +42,7 @@ public sealed class TeamService
         bool exists = await _dbContext.Teams.AnyAsync(x => x.Name == request.Name, cancellationToken);
         if (exists)
         {
-            throw new AppException(409, "Team with this name already exists.");
+            throw new AppException(409, "Команда с таким названием уже существует.");
         }
 
         await EnsureParticipantHasNoActiveTeamAsync(participantId, cancellationToken);
@@ -80,16 +80,26 @@ public sealed class TeamService
 
         Team team = await _dbContext.Teams
             .SingleOrDefaultAsync(x => x.Id == request.TeamId, cancellationToken)
-            ?? throw new AppException(404, "Team not found.");
+            ?? throw new AppException(404, "Команда не найдена.");
 
         if (team.IsLocked || team.Status != TeamStatus.Active)
         {
-            throw new AppException(409, "Team is not available for joining.");
+            throw new AppException(409, "Команда недоступна для вступления.");
         }
 
         if (!_passwordHasher.Verify(request.JoinSecret, team.JoinSecretHash))
         {
-            throw new AppException(401, "Invalid team join secret.");
+            throw new AppException(401, "Неверный секрет команды.");
+        }
+
+        int maxMembers = await ResolveMaxTeamMembersAsync(cancellationToken);
+        int activeCount = await _dbContext.TeamMemberships.CountAsync(
+            x => x.TeamId == team.Id && x.Status == TeamMembershipStatus.Active,
+            cancellationToken);
+
+        if (activeCount >= maxMembers)
+        {
+            throw new AppException(409, $"В команде уже максимальное число участников ({maxMembers}).");
         }
 
         TeamMembership membership = new()
@@ -167,17 +177,34 @@ public sealed class TeamService
                         x.ParticipantUserId,
                         x.ParticipantUser.DisplayName,
                         x.Status.ToString(),
-                        x.JoinedAt))
+                        x.JoinedAt,
+                        x.ParticipantUser.AvatarUrl,
+                        x.ParticipantUser.Provider))
                 .ToList());
 
     private Guid EnsureParticipant()
     {
         if (!_currentPrincipal.IsParticipantAuthenticated || _currentPrincipal.ParticipantUserId is null)
         {
-            throw new AppException(401, "Participant authentication is required.");
+            throw new AppException(401, "Требуется вход участника.");
         }
 
         return _currentPrincipal.ParticipantUserId.Value;
+    }
+
+    private async Task<int> ResolveMaxTeamMembersAsync(CancellationToken cancellationToken)
+    {
+        int max = await _dbContext.GlobalSettings
+            .AsNoTracking()
+            .Select(x => x.MaxTeamMembers)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (max < 1)
+        {
+            return 4;
+        }
+
+        return max;
     }
 
     private async Task EnsureParticipantHasNoActiveTeamAsync(Guid participantId, CancellationToken cancellationToken)
@@ -187,7 +214,7 @@ public sealed class TeamService
 
         if (hasActiveTeam)
         {
-            throw new AppException(409, "Participant already belongs to an active team.");
+            throw new AppException(409, "Участник уже состоит в активной команде.");
         }
     }
 

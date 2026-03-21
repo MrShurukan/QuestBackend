@@ -65,6 +65,14 @@ public static class AdminSupportEndpoints
                 return Results.NoContent();
             });
 
+        group.MapPost(
+            "/participants/{participantId:guid}/password",
+            async (Guid participantId, ParticipantPasswordResetRequest request, SupportService service, CancellationToken cancellationToken) =>
+            {
+                await service.ResetParticipantPasswordAsync(participantId, request, cancellationToken);
+                return Results.NoContent();
+            });
+
         return app;
     }
 }

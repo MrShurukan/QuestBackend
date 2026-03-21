@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http.Features;
 using QuestBackend.Api.Common;
 using QuestBackend.Api.Modules.Admin;
+using QuestBackend.Domain.Admin;
 using QuestBackend.Api.Modules.Enigma;
 using QuestBackend.Api.Modules.Participants;
 using QuestBackend.Api.Modules.Public;
@@ -18,6 +20,11 @@ builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks()
     .AddCheck<DatabaseHealthCheck>("database");
 builder.Services.AddQuestRateLimiting();
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 25 * 1024 * 1024;
+});
 
 builder.Services.AddQuestBackendInfrastructure(builder.Configuration);
 
@@ -76,6 +83,15 @@ builder.Services.AddAuthorization(
             });
 
         options.AddPolicy(
+            ApiPolicies.AdminSuperOnly,
+            policy =>
+            {
+                policy.AddAuthenticationSchemes(QuestAuthConstants.AdminScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(nameof(AdminRole.SuperAdmin));
+            });
+
+        options.AddPolicy(
             ApiPolicies.ParticipantOnly,
             policy =>
             {
@@ -85,6 +101,9 @@ builder.Services.AddAuthorization(
     });
 
 WebApplication app = builder.Build();
+
+string webRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "avatars"));
 
 using (IServiceScope scope = app.Services.CreateScope())
 {
@@ -96,6 +115,7 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseRateLimiter();
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -116,6 +136,7 @@ app.MapQuestionEndpoints();
 app.MapEnigmaEndpoints();
 
 app.MapAdminAuthEndpoints();
+app.MapAdminUsersEndpoints();
 app.MapAdminTagEndpoints();
 app.MapAdminQuestionEndpoints();
 app.MapAdminPoolEndpoints();

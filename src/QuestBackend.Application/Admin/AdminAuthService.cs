@@ -33,7 +33,7 @@ public sealed class AdminAuthService
 
         if (admin is null || !admin.IsActive || !_passwordHasher.Verify(request.Password, admin.PasswordHash))
         {
-            throw new AppException(401, "Invalid admin credentials.");
+            throw new AppException(401, "Неверный логин или пароль администратора.");
         }
 
         admin.LastLoginAt = _clock.UtcNow;

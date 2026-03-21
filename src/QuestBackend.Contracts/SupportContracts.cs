@@ -6,6 +6,8 @@ public sealed record TeamQuestionAdjustmentRequest(string? Reason);
 
 public sealed record TeamMemberRemovalRequest(string? Reason);
 
+public sealed record ParticipantPasswordResetRequest(string NewPassword, string? Reason);
+
 public sealed record TeamSupportDetailsResponse(
     TeamSummaryResponse Team,
     IReadOnlyList<QuestionSummaryResponse> Questions,

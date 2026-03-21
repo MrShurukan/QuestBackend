@@ -4,6 +4,7 @@ using QuestBackend.Application.Shared;
 using QuestBackend.Application.Teams;
 using QuestBackend.Contracts;
 using QuestBackend.Domain.Enigma;
+using QuestBackend.Domain.Participants;
 using QuestBackend.Domain.Progress;
 using QuestBackend.Domain.Shared;
 using QuestBackend.Domain.Teams;
@@ -12,15 +13,19 @@ namespace QuestBackend.Application.Support;
 
 public sealed class SupportService
 {
+    private const int MinParticipantPasswordLength = 8;
+
     private readonly IAuditWriter _auditWriter;
     private readonly IClock _clock;
     private readonly IQuestDbContext _dbContext;
+    private readonly IPasswordHasher _passwordHasher;
 
-    public SupportService(IQuestDbContext dbContext, IAuditWriter auditWriter, IClock clock)
+    public SupportService(IQuestDbContext dbContext, IAuditWriter auditWriter, IClock clock, IPasswordHasher passwordHasher)
     {
         _dbContext = dbContext;
         _auditWriter = auditWriter;
         _clock = clock;
+        _passwordHasher = passwordHasher;
     }
 
     public async Task<IReadOnlyList<TeamSummaryResponse>> GetTeamsAsync(CancellationToken cancellationToken = default)
@@ -227,5 +232,38 @@ public sealed class SupportService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         await _auditWriter.WriteAsync("SupportRemoveMember", nameof(TeamMembership), membership.Id.ToString(), AppJson.Serialize(new { teamId, membershipId }), request.Reason, cancellationToken);
+    }
+
+    public async Task ResetParticipantPasswordAsync(Guid participantId, ParticipantPasswordResetRequest request, CancellationToken cancellationToken = default)
+    {
+        if (request.NewPassword.Length < MinParticipantPasswordLength)
+        {
+            throw new AppException(400, $"Пароль не короче {MinParticipantPasswordLength} символов.");
+        }
+
+        ParticipantUser? participant = await _dbContext.ParticipantUsers
+            .SingleOrDefaultAsync(x => x.Id == participantId, cancellationToken);
+
+        if (participant is null)
+        {
+            throw new AppException(404, "Участник не найден.");
+        }
+
+        if (participant.Provider != ParticipantAuthProviders.Local)
+        {
+            throw new AppException(400, "Сброс пароля доступен только для локальной учётной записи.");
+        }
+
+        participant.PasswordHash = _passwordHasher.Hash(request.NewPassword);
+        participant.UpdatedAt = _clock.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _auditWriter.WriteAsync(
+            "SupportResetParticipantPassword",
+            nameof(ParticipantUser),
+            participantId.ToString(),
+            "{}",
+            request.Reason,
+            cancellationToken);
     }
 }
