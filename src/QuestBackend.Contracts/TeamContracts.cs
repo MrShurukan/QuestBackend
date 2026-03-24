@@ -11,6 +11,8 @@ public sealed record TeamSummaryResponse(
     bool IsLocked,
     bool IsHidden,
     bool IsDisqualified,
+    bool EnigmaSolved,
+    DateTimeOffset? EnigmaSolvedAt,
     IReadOnlyList<TeamMemberResponse> Members);
 
 public sealed record TeamMemberResponse(

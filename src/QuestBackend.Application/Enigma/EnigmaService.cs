@@ -41,6 +41,9 @@ public sealed class EnigmaService
         EnigmaProfile profile = await GetCurrentProfileAsync(cancellationToken);
         GlobalSettings settings = await GetGlobalSettingsAsync(cancellationToken);
 
+        bool isEnigmaSolved = await HasSuccessfulAttemptAsync(team.Id, profile.Id, cancellationToken);
+        string? solvedRevealMessage = isEnigmaSolved ? profile.SuccessMessage : null;
+
         HashSet<Guid> unlockedTagIds = await GetSolvedTagIdsForTeamAsync(team.Id, cancellationToken);
         Dictionary<Guid, int> draftPositions = await GetDraftPositionsAsync(team.Id, profile.Id, cancellationToken);
 
@@ -81,6 +84,8 @@ public sealed class EnigmaService
             cooldownMinutes,
             latestAttempt?.CooldownAppliedUntil,
             rotors,
+            isEnigmaSolved,
+            solvedRevealMessage,
             _clock.UtcNow);
     }
 
@@ -149,12 +154,23 @@ public sealed class EnigmaService
                 lifecycleDecision.Status == Domain.QuestDay.QuestDayStatus.DayClosed ? "day_closed" : "not_started",
                 lifecycleDecision.Message,
                 null,
+                null,
                 _clock.UtcNow);
         }
 
         EnigmaProfile profile = await GetCurrentProfileAsync(cancellationToken);
         GlobalSettings settings = await GetGlobalSettingsAsync(cancellationToken);
         int cooldownMinutes = settings.EnigmaCooldownMinutes > 0 ? settings.EnigmaCooldownMinutes : profile.AttemptCooldownMinutes;
+
+        if (await HasSuccessfulAttemptAsync(team.Id, profile.Id, cancellationToken))
+        {
+            return new SubmitEnigmaAttemptResponse(
+                "already_solved",
+                profile.SuccessMessage,
+                null,
+                null,
+                _clock.UtcNow);
+        }
 
         EnigmaAttempt? latestAttempt = await _dbContext.EnigmaAttempts
             .Where(x => x.TeamId == team.Id && x.EnigmaProfileId == profile.Id)
@@ -180,7 +196,12 @@ public sealed class EnigmaService
             await _dbContext.EnigmaAttempts.AddAsync(blockedAttempt, cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
 
-            return new SubmitEnigmaAttemptResponse("cooldown", "Enigma cooldown is still active.", cooldownUntil, _clock.UtcNow);
+            return new SubmitEnigmaAttemptResponse(
+                "cooldown",
+                "Enigma cooldown is still active.",
+                null,
+                cooldownUntil,
+                _clock.UtcNow);
         }
 
         HashSet<Guid> unlockedTagIds = await GetSolvedTagIdsForTeamAsync(team.Id, cancellationToken);
@@ -203,13 +224,46 @@ public sealed class EnigmaService
         };
 
         await _dbContext.EnigmaAttempts.AddAsync(attempt, cancellationToken);
+
+        if (evaluation.IsSuccess)
+        {
+            Team teamTracked = await _dbContext.Teams.FirstAsync(x => x.Id == team.Id, cancellationToken);
+            if (teamTracked.EnigmaSolvedAt is null)
+            {
+                teamTracked.EnigmaSolvedAt = _clock.UtcNow;
+                teamTracked.EnigmaSolvedProfileId = profile.Id;
+            }
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        if (evaluation.IsSuccess)
+        {
+            return new SubmitEnigmaAttemptResponse(
+                "success",
+                profile.SuccessMessage,
+                null,
+                nextAllowedAt,
+                _clock.UtcNow);
+        }
+
+        int seed = EnigmaSuccessMessageMasker.ComputeSeed(normalized);
+        string paperText = EnigmaSuccessMessageMasker.Mask(profile.SuccessMessage, seed);
         return new SubmitEnigmaAttemptResponse(
-            evaluation.IsSuccess ? "success" : "failure",
-            evaluation.IsSuccess ? profile.SuccessMessage : profile.FailureMessage,
+            "failure",
+            paperText,
+            profile.FailureMessage,
             nextAllowedAt,
             _clock.UtcNow);
+    }
+
+    private async Task<bool> HasSuccessfulAttemptAsync(Guid teamId, Guid profileId, CancellationToken cancellationToken)
+    {
+        return await _dbContext.EnigmaAttempts
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.TeamId == teamId && x.EnigmaProfileId == profileId && x.Result == EnigmaAttemptResult.Success,
+                cancellationToken);
     }
 
     private static Dictionary<Guid, int> NormalizePositionsForEvaluation(
@@ -225,7 +279,6 @@ public sealed class EnigmaService
         {
             rotorByTag.TryGetValue(tagId, out EnigmaRotorDefinition? def);
             int min = def?.PositionMin ?? 0;
-            int max = def?.PositionMax ?? 0;
             if (!unlockedTagIds.Contains(tagId))
             {
                 normalized[tagId] = min;

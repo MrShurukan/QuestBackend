@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using QuestBackend.Application.Abstractions;
 using QuestBackend.Domain.Admin;
 using QuestBackend.Domain.Audit;
@@ -21,6 +22,8 @@ public sealed class QuestDbContext : DbContext, IQuestDbContext
         : base(options)
     {
     }
+
+    DatabaseFacade IQuestDbContext.Database => Database;
 
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
 

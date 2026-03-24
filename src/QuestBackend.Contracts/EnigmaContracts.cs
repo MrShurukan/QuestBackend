@@ -32,13 +32,18 @@ public sealed record EnigmaStateResponse(
     int AttemptCooldownMinutes,
     DateTimeOffset? NextAllowedAttemptAt,
     IReadOnlyList<EnigmaRotorStateDto> Rotors,
+    bool IsEnigmaSolved,
+    string? SolvedRevealMessage,
     DateTimeOffset ServerTime);
 
 public sealed record SubmitEnigmaAttemptRequest(IReadOnlyDictionary<Guid, int> RotorPositions);
 
+/// <param name="Message">Text for the paper typewriter: masked or plain SuccessMessage (or errors for non-game results).</param>
+/// <param name="AfterFailureMessage">Toast after wrong animation; only for result failure; null otherwise.</param>
 public sealed record SubmitEnigmaAttemptResponse(
     string Result,
     string Message,
+    string? AfterFailureMessage,
     DateTimeOffset? NextAllowedAttemptAt,
     DateTimeOffset ServerTime);
 

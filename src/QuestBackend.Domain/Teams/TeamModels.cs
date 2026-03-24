@@ -36,6 +36,11 @@ public sealed class Team : EntityBase
 
     public bool IsDisqualified { get; set; }
 
+    /// <summary>First successful enigma solve for this team (any profile).</summary>
+    public DateTimeOffset? EnigmaSolvedAt { get; set; }
+
+    public Guid? EnigmaSolvedProfileId { get; set; }
+
     public List<TeamMembership> Memberships { get; set; } = [];
 
     public List<TeamQuestionState> QuestionStates { get; set; } = [];

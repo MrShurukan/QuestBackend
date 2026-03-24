@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using QuestBackend.Domain.Admin;
 using QuestBackend.Domain.Audit;
 using QuestBackend.Domain.Config;
@@ -15,6 +16,9 @@ namespace QuestBackend.Application.Abstractions;
 
 public interface IQuestDbContext
 {
+    /// <summary>Underlying store transaction support (e.g. multi-phase SaveChanges).</summary>
+    DatabaseFacade Database { get; }
+
     DbSet<AdminUser> AdminUsers { get; }
 
     DbSet<ParticipantUser> ParticipantUsers { get; }

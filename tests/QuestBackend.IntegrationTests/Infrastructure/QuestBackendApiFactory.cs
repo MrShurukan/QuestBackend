@@ -2,9 +2,12 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using QuestBackend.Application.Abstractions;
 using QuestBackend.Contracts;
 using QuestBackend.Domain.Config;
 using QuestBackend.Domain.Enigma;
@@ -19,7 +22,12 @@ using Testcontainers.PostgreSql;
 
 namespace QuestBackend.IntegrationTests.Infrastructure;
 
-public sealed class QuestBackendApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+/// <summary>
+/// Integration host against a dedicated Postgres instance (Testcontainers).
+/// Uses environment <c>Testing</c> and replaces <see cref="QuestDbContext"/> registration so the app never uses
+/// the developer connection string from appsettings or <c>ConnectionStrings__QuestDatabase</c> from the shell.
+/// </summary>
+public sealed class QuestBackendApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _adminLogin = $"admin-{Guid.NewGuid():N}";
     private readonly string _adminPassword = "admin123";
@@ -34,7 +42,8 @@ public sealed class QuestBackendApiFactory : WebApplicationFactory<Program>, IAs
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
+        // Avoid Development: user secrets / env vars can override connection string after in-memory config.
+        builder.UseEnvironment("Testing");
         builder.ConfigureAppConfiguration(
             (_, config) =>
             {
@@ -48,6 +57,20 @@ public sealed class QuestBackendApiFactory : WebApplicationFactory<Program>, IAs
 
                 config.AddInMemoryCollection(settings);
             });
+
+        // RegisterOptions from Program runs with IConfiguration; AddDbContext captures connection string once.
+        // Environment variables (e.g. ConnectionStrings__QuestDatabase) can still win over in-memory providers.
+        // Re-bind EF to the container connection string after all host configuration runs.
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<DbContextOptions<QuestDbContext>>();
+            services.RemoveAll<QuestDbContext>();
+            services.RemoveAll<IQuestDbContext>();
+
+            string connectionString = _postgres.GetConnectionString();
+            services.AddDbContext<QuestDbContext>(options => options.UseNpgsql(connectionString));
+            services.AddScoped<IQuestDbContext>(sp => sp.GetRequiredService<QuestDbContext>());
+        });
     }
 
     public async Task InitializeAsync()
@@ -55,10 +78,10 @@ public sealed class QuestBackendApiFactory : WebApplicationFactory<Program>, IAs
         await _postgres.StartAsync();
     }
 
-    async Task IAsyncLifetime.DisposeAsync()
+    public override async ValueTask DisposeAsync()
     {
+        await base.DisposeAsync();
         await _postgres.DisposeAsync();
-        Dispose();
     }
 
     public HttpClient CreateCookieClient()

@@ -64,6 +64,8 @@ internal sealed class EnigmaRotorDefinitionConfiguration : IEntityTypeConfigurat
     {
         builder.ToTable("enigma_rotor_definitions");
         builder.HasKey(x => x.Id);
+        // EntityBase assigns Guid.CreateVersion7() client-side; ValueGeneratedOnAdd misled EF into wrong insert/update classification after multi-step saves.
+        builder.Property(x => x.Id).ValueGeneratedNever();
         builder.Property(x => x.Label).HasMaxLength(200).IsRequired();
         builder.Property(x => x.ColorOverride).HasMaxLength(7);
         builder.Property(x => x.MetaJson).HasColumnType("text");

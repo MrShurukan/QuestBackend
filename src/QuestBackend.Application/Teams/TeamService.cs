@@ -168,6 +168,8 @@ public sealed class TeamService
             team.IsLocked,
             team.IsHidden,
             team.IsDisqualified,
+            team.EnigmaSolvedAt is not null,
+            team.EnigmaSolvedAt,
             team.Memberships
                 .Where(x => x.Status == TeamMembershipStatus.Active)
                 .OrderBy(x => x.JoinedAt)

@@ -532,8 +532,9 @@ public sealed class AdminConfigurationService
 
     public async Task<EnigmaProfileResponse> UpdateEnigmaProfileAsync(Guid id, EnigmaProfileUpsertRequest request, CancellationToken cancellationToken = default)
     {
+        // Do not Include rotors: loading them into the tracker then deleting/re-adding led to EnigmaRotorDefinition:Modified
+        // on the second SaveChanges (UPDATE with stale concurrency token / identity map). Bulk-delete via SQL instead.
         EnigmaProfile profile = await _dbContext.EnigmaProfiles
-            .Include(x => x.RotorDefinitions)
             .SingleAsync(x => x.Id == id, cancellationToken);
 
         profile.Name = request.Name.Trim();
@@ -545,29 +546,45 @@ public sealed class AdminConfigurationService
         profile.SecretCombinationJson = AppJson.Serialize(request.SecretCombination);
         profile.UpdatedAt = _clock.UtcNow;
 
-        _dbContext.EnigmaRotorDefinitions.RemoveRange(profile.RotorDefinitions);
-        profile.RotorDefinitions = request.Rotors
-            .Select(
-                x => new EnigmaRotorDefinition
-                {
-                    TagId = x.TagId,
-                    Label = x.Label,
-                    ColorOverride = x.ColorOverride,
-                    DisplayOrder = x.DisplayOrder,
-                    PositionMin = x.PositionMin,
-                    PositionMax = x.PositionMax,
-                    IsActive = x.IsActive,
-                    CreatedAt = _clock.UtcNow,
-                    UpdatedAt = _clock.UtcNow,
-                })
-            .ToList();
-
-        if (request.IsActive)
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            await ActivateEnigmaProfileInternalAsync(profile, cancellationToken);
+            await _dbContext.EnigmaRotorDefinitions
+                .Where(r => r.EnigmaProfileId == id)
+                .ExecuteDeleteAsync(cancellationToken);
+
+            foreach (EnigmaRotorDefinitionRequest x in request.Rotors)
+            {
+                profile.RotorDefinitions.Add(
+                    new EnigmaRotorDefinition
+                    {
+                        EnigmaProfileId = profile.Id,
+                        TagId = x.TagId,
+                        Label = x.Label,
+                        ColorOverride = x.ColorOverride,
+                        DisplayOrder = x.DisplayOrder,
+                        PositionMin = x.PositionMin,
+                        PositionMax = x.PositionMax,
+                        IsActive = x.IsActive,
+                        CreatedAt = _clock.UtcNow,
+                        UpdatedAt = _clock.UtcNow,
+                    });
+            }
+
+            if (request.IsActive)
+            {
+                await ActivateEnigmaProfileInternalAsync(profile, cancellationToken);
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
         await _auditWriter.WriteAsync("UpdateEnigmaProfile", nameof(EnigmaProfile), profile.Id.ToString(), AppJson.Serialize(request), null, cancellationToken);
 
         return ToEnigmaProfileResponse(profile);
@@ -614,39 +631,39 @@ public sealed class AdminConfigurationService
 
     private async Task ActivateRoutingProfileInternalAsync(RoutingProfile profile, CancellationToken cancellationToken)
     {
-        List<RoutingProfile> profiles = await _dbContext.RoutingProfiles.ToListAsync(cancellationToken);
-        foreach (RoutingProfile existing in profiles)
-        {
-            existing.IsActive = existing.Id == profile.Id;
-            existing.UpdatedAt = _clock.UtcNow;
-            if (existing.Id == profile.Id)
-            {
-                existing.ActivatedAt = _clock.UtcNow;
-            }
-        }
+        // Bulk-deactivate other profiles in SQL so we do not attach every row with a possibly stale Version
+        // (tracked updates + int concurrency tokens caused DbUpdateConcurrencyException on SaveChanges).
+        DateTimeOffset now = _clock.UtcNow;
+        await _dbContext.RoutingProfiles
+            .Where(x => x.Id != profile.Id)
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(x => x.IsActive, false).SetProperty(x => x.UpdatedAt, now).SetProperty(x => x.Version, x => x.Version + 1),
+                cancellationToken);
 
         profile.IsActive = true;
-        profile.ActivatedAt = _clock.UtcNow;
+        profile.ActivatedAt = now;
+        profile.UpdatedAt = now;
 
         GlobalSettings settings = await GetOrCreateGlobalSettingsAsync(cancellationToken);
         settings.CurrentRoutingProfileId = profile.Id;
-        settings.UpdatedAt = _clock.UtcNow;
+        settings.UpdatedAt = now;
     }
 
     private async Task ActivateEnigmaProfileInternalAsync(EnigmaProfile profile, CancellationToken cancellationToken)
     {
-        List<EnigmaProfile> profiles = await _dbContext.EnigmaProfiles.ToListAsync(cancellationToken);
-        foreach (EnigmaProfile existing in profiles)
-        {
-            existing.IsActive = existing.Id == profile.Id;
-            existing.UpdatedAt = _clock.UtcNow;
-        }
+        DateTimeOffset now = _clock.UtcNow;
+        await _dbContext.EnigmaProfiles
+            .Where(x => x.Id != profile.Id)
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(x => x.IsActive, false).SetProperty(x => x.UpdatedAt, now).SetProperty(x => x.Version, x => x.Version + 1),
+                cancellationToken);
 
         profile.IsActive = true;
+        profile.UpdatedAt = now;
 
         GlobalSettings settings = await GetOrCreateGlobalSettingsAsync(cancellationToken);
         settings.CurrentEnigmaProfileId = profile.Id;
-        settings.UpdatedAt = _clock.UtcNow;
+        settings.UpdatedAt = now;
     }
 
     private async Task<RoutingProfile> GetCurrentRoutingProfileEntityAsync(CancellationToken cancellationToken)
