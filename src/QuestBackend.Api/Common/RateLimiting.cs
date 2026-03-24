@@ -9,6 +9,8 @@ public static class RateLimiting
     public const string AuthPolicy = "auth";
     public const string SubmissionPolicy = "submission";
 
+    public const string EnigmaDraftPolicy = "enigma-draft";
+
     public static IServiceCollection AddQuestRateLimiting(this IServiceCollection services)
     {
         services.AddRateLimiter(
@@ -48,6 +50,18 @@ public static class RateLimiting
                             factory: _ => new FixedWindowRateLimiterOptions
                             {
                                 PermitLimit = 30,
+                                Window = TimeSpan.FromMinutes(1),
+                                QueueLimit = 0,
+                            }));
+
+                options.AddPolicy(
+                    EnigmaDraftPolicy,
+                    httpContext =>
+                        RateLimitPartition.GetFixedWindowLimiter(
+                            partitionKey: GetParticipantOrRemoteKey(httpContext),
+                            factory: _ => new FixedWindowRateLimiterOptions
+                            {
+                                PermitLimit = 120,
                                 Window = TimeSpan.FromMinutes(1),
                                 QueueLimit = 0,
                             }));

@@ -801,8 +801,7 @@ public sealed class AdminConfigurationService
                         x.DisplayOrder,
                         x.PositionMin,
                         x.PositionMax,
-                        x.IsActive,
-                        0))
+                        x.IsActive))
                 .ToList());
     }
 

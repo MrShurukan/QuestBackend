@@ -43,6 +43,8 @@ public sealed class Team : EntityBase
     public List<TeamRotorReward> RotorRewards { get; set; } = [];
 
     public List<EnigmaAttempt> EnigmaAttempts { get; set; } = [];
+
+    public List<TeamEnigmaDraft> EnigmaDrafts { get; set; } = [];
 }
 
 public sealed class TeamMembership : EntityBase

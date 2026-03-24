@@ -10,7 +10,7 @@ namespace QuestBackend.IntegrationTests;
 public sealed class QuestionGameFlowTests
 {
     [Fact]
-    public async Task QrScanAndAnswers_ShouldUnlockQuestion_ApplyCooldown_AndGrantReward()
+    public async Task QrScanAndAnswers_ShouldUnlockQuestion_ApplyCooldown_AndUnlockEnigmaRotor()
     {
         await using QuestBackendApiFactory factory = new();
         await factory.InitializeAsync();
@@ -44,12 +44,12 @@ public sealed class QuestionGameFlowTests
         HttpResponseMessage correctResponseMessage = await client.PostAsJsonAsync($"/api/questions/{config.BlueQuestionId}/answers", new SubmitAnswerRequest("4"));
         SubmitAnswerResponse correctResponse = (await correctResponseMessage.Content.ReadFromJsonAsync<SubmitAnswerResponse>())!;
         correctResponse.Result.Should().Be("correct");
-        correctResponse.RewardGranted.Should().BeTrue();
+        correctResponse.RewardGranted.Should().BeFalse();
 
         HttpResponseMessage enigmaStateResponse = await client.GetAsync("/api/enigma/state");
         enigmaStateResponse.EnsureSuccessStatusCode();
         EnigmaStateResponse enigmaState = (await enigmaStateResponse.Content.ReadFromJsonAsync<EnigmaStateResponse>())!;
-        enigmaState.Rotors.Should().Contain(x => x.TagId == config.BlueTagId && x.RewardCount == 1);
+        enigmaState.Rotors.Should().Contain(x => x.TagId == config.BlueTagId && x.IsUnlocked);
     }
 
     [Fact]

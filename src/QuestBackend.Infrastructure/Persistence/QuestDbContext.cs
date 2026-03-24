@@ -62,6 +62,8 @@ public sealed class QuestDbContext : DbContext, IQuestDbContext
 
     public DbSet<EnigmaAttempt> EnigmaAttempts => Set<EnigmaAttempt>();
 
+    public DbSet<TeamEnigmaDraft> TeamEnigmaDrafts => Set<TeamEnigmaDraft>();
+
     public DbSet<GlobalSettings> GlobalSettings => Set<GlobalSettings>();
 
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();

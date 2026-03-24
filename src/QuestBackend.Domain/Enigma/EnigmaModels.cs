@@ -38,6 +38,8 @@ public sealed class EnigmaProfile : EntityBase
     public string ConfigJson { get; set; } = "{}";
 
     public List<EnigmaRotorDefinition> RotorDefinitions { get; set; } = [];
+
+    public List<TeamEnigmaDraft> TeamDrafts { get; set; } = [];
 }
 
 public sealed class EnigmaRotorDefinition : EntityBase
@@ -111,4 +113,21 @@ public sealed class EnigmaAttempt : EntityBase
     public DateTimeOffset? CooldownAppliedUntil { get; set; }
 
     public string EvaluationSnapshotJson { get; set; } = "{}";
+}
+
+/// <summary>
+/// Persisted rotor dial positions for a team and enigma profile (draft before submit).
+/// </summary>
+public sealed class TeamEnigmaDraft : EntityBase
+{
+    public Guid TeamId { get; set; }
+
+    public Team Team { get; set; } = null!;
+
+    public Guid EnigmaProfileId { get; set; }
+
+    public EnigmaProfile EnigmaProfile { get; set; } = null!;
+
+    /// <summary>JSON map of tag id -> position.</summary>
+    public string PositionsJson { get; set; } = "{}";
 }

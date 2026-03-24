@@ -4,7 +4,6 @@ using QuestBackend.Application.Shared;
 using QuestBackend.Application.Teams;
 using QuestBackend.Contracts;
 using QuestBackend.Domain.Config;
-using QuestBackend.Domain.Enigma;
 using QuestBackend.Domain.Progress;
 using QuestBackend.Domain.Questions;
 using QuestBackend.Domain.Shared;
@@ -218,7 +217,7 @@ public sealed class QuestionGameService
             UpdatedAt = _clock.UtcNow,
         };
 
-        bool rewardGranted = false;
+        const bool rewardGranted = false;
         if (evaluation.IsCorrect)
         {
             state.IsSolved = true;
@@ -228,28 +227,6 @@ public sealed class QuestionGameService
             state.LastAttemptAt = _clock.UtcNow;
             state.NextAllowedAnswerAt = null;
             state.UpdatedAt = _clock.UtcNow;
-
-            bool rewardExists = await _dbContext.TeamRotorRewards.AnyAsync(
-                x => x.TeamId == team.Id && x.SourceQuestionId == state.QuestionId,
-                cancellationToken);
-
-            if (!rewardExists)
-            {
-                TeamRotorReward reward = new()
-                {
-                    TeamId = team.Id,
-                    TagId = state.Question.TagId,
-                    SourceQuestionId = state.QuestionId,
-                    RewardType = "RotorHint",
-                    GrantedAt = _clock.UtcNow,
-                    PayloadJson = AppJson.Serialize(new { state.Question.FooterHint, state.Question.TagId }),
-                    CreatedAt = _clock.UtcNow,
-                    UpdatedAt = _clock.UtcNow,
-                };
-
-                await _dbContext.TeamRotorRewards.AddAsync(reward, cancellationToken);
-                rewardGranted = true;
-            }
         }
         else
         {

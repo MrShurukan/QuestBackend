@@ -85,7 +85,7 @@ public sealed class QuestionGameServiceTests
     }
 
     [Fact]
-    public async Task SubmitAnswerAsync_ShouldGrantOnlyOneReward_WhenQuestionBecomesSolved()
+    public async Task SubmitAnswerAsync_ShouldMarkSolved_WithoutRotorRewardRows()
     {
         await using var dbContext = TestDbContextFactory.Create();
         FakeClock clock = new();
@@ -150,8 +150,8 @@ public sealed class QuestionGameServiceTests
         SubmitAnswerResponse secondResponse = await service.SubmitAnswerAsync(question.Id, new SubmitAnswerRequest("RIGHT"));
 
         firstResponse.Result.Should().Be("correct");
-        firstResponse.RewardGranted.Should().BeTrue();
+        firstResponse.RewardGranted.Should().BeFalse();
         secondResponse.Result.Should().Be("already_solved");
-        dbContext.TeamRotorRewards.Should().HaveCount(1);
+        dbContext.TeamRotorRewards.Should().HaveCount(0);
     }
 }

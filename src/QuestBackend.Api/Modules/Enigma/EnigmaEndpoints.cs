@@ -26,6 +26,15 @@ public static class EnigmaEndpoints
             })
             .RequireRateLimiting(Common.RateLimiting.SubmissionPolicy);
 
+        group.MapPut(
+            "/draft-positions",
+            async (UpdateEnigmaDraftPositionsRequest request, EnigmaService service, CancellationToken cancellationToken) =>
+            {
+                await service.SaveDraftPositionsAsync(request, cancellationToken);
+                return Results.NoContent();
+            })
+            .RequireRateLimiting(Common.RateLimiting.EnigmaDraftPolicy);
+
         return app;
     }
 }

@@ -55,6 +55,8 @@ public interface IQuestDbContext
 
     DbSet<EnigmaAttempt> EnigmaAttempts { get; }
 
+    DbSet<TeamEnigmaDraft> TeamEnigmaDrafts { get; }
+
     DbSet<GlobalSettings> GlobalSettings { get; }
 
     DbSet<AdminAuditLog> AdminAuditLogs { get; }

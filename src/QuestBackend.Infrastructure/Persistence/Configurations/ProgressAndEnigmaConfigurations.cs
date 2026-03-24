@@ -99,6 +99,26 @@ internal sealed class EnigmaAttemptConfiguration : IEntityTypeConfiguration<Enig
     }
 }
 
+internal sealed class TeamEnigmaDraftConfiguration : IEntityTypeConfiguration<TeamEnigmaDraft>
+{
+    public void Configure(EntityTypeBuilder<TeamEnigmaDraft> builder)
+    {
+        builder.ToTable("team_enigma_drafts");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.PositionsJson).HasColumnType("text").IsRequired();
+        builder.Property(x => x.Version).IsConcurrencyToken();
+        builder.HasIndex(x => new { x.TeamId, x.EnigmaProfileId }).IsUnique();
+        builder.HasOne(x => x.Team)
+            .WithMany(x => x.EnigmaDrafts)
+            .HasForeignKey(x => x.TeamId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.EnigmaProfile)
+            .WithMany(x => x.TeamDrafts)
+            .HasForeignKey(x => x.EnigmaProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 internal sealed class AdminAuditLogConfiguration : IEntityTypeConfiguration<AdminAuditLog>
 {
     public void Configure(EntityTypeBuilder<AdminAuditLog> builder)
