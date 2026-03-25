@@ -1,6 +1,8 @@
+using System.Net;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using QuestBackend.Api.Common;
 using QuestBackend.Api.Modules.Admin;
 using QuestBackend.Domain.Admin;
@@ -15,6 +17,14 @@ using QuestBackend.Infrastructure;
 using QuestBackend.Infrastructure.Initialization;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Nginx на том же хосте подключается к Kestrel с loopback — доверяем только ему.
+    options.KnownProxies.Add(IPAddress.Loopback);
+    options.KnownProxies.Add(IPAddress.IPv6Loopback);
+});
 
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks()
@@ -101,6 +111,8 @@ builder.Services.AddAuthorization(
     });
 
 WebApplication app = builder.Build();
+
+app.UseForwardedHeaders();
 
 string webRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
 Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "avatars"));
