@@ -39,8 +39,8 @@ public sealed class AdminConfigurationService
     {
         return await _dbContext.QuestionTags
             .AsNoTracking()
-            .OrderBy(x => x.SortOrder)
-            .ThenBy(x => x.Name)
+            .OrderBy(x => x.Name)
+            .ThenBy(x => x.Code)
             .Select(x => new TagResponse(x.Id, x.Code, x.Name, x.Color, x.IsActive, x.SortOrder, x.Description))
             .ToListAsync(cancellationToken);
     }
@@ -173,8 +173,7 @@ public sealed class AdminConfigurationService
         List<QuestionPool> pools = await _dbContext.QuestionPools
             .AsNoTracking()
             .Include(x => x.Entries.OrderBy(e => e.Position))
-            .OrderBy(x => x.SortOrder)
-            .ThenBy(x => x.Name)
+            .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
 
         return pools.Select(ToPoolResponse).ToList();
@@ -814,6 +813,7 @@ public sealed class AdminConfigurationService
                         x.TagId,
                         x.Tag?.Name ?? string.Empty,
                         x.ColorOverride ?? x.Tag?.Color ?? "#000000",
+                        x.ColorOverride,
                         x.Label,
                         x.DisplayOrder,
                         x.PositionMin,

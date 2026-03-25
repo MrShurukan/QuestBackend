@@ -42,6 +42,22 @@ public static class AdminSupportEndpoints
             });
 
         group.MapPost(
+            "/teams/{teamId:guid}/questions/{questionId:guid}/close",
+            async (Guid teamId, Guid questionId, TeamQuestionAdjustmentRequest request, SupportService service, CancellationToken cancellationToken) =>
+            {
+                await service.CloseQuestionAsync(teamId, questionId, request, cancellationToken);
+                return Results.NoContent();
+            });
+
+        group.MapPost(
+            "/teams/{teamId:guid}/questions/{questionId:guid}/unsolve",
+            async (Guid teamId, Guid questionId, TeamQuestionAdjustmentRequest request, SupportService service, CancellationToken cancellationToken) =>
+            {
+                await service.UnsolveQuestionAsync(teamId, questionId, request, cancellationToken);
+                return Results.NoContent();
+            });
+
+        group.MapPost(
             "/teams/{teamId:guid}/questions/{questionId:guid}/revoke-reward",
             async (Guid teamId, Guid questionId, TeamQuestionAdjustmentRequest request, SupportService service, CancellationToken cancellationToken) =>
             {

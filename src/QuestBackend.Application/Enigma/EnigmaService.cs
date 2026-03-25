@@ -39,7 +39,6 @@ public sealed class EnigmaService
     {
         Team team = await EnsureCurrentTeamAsync(cancellationToken);
         EnigmaProfile profile = await GetCurrentProfileAsync(cancellationToken);
-        GlobalSettings settings = await GetGlobalSettingsAsync(cancellationToken);
 
         bool isEnigmaSolved = await HasSuccessfulAttemptAsync(team.Id, profile.Id, cancellationToken);
         string? solvedRevealMessage = isEnigmaSolved ? profile.SuccessMessage : null;
@@ -53,7 +52,7 @@ public sealed class EnigmaService
             .OrderByDescending(x => x.AttemptedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
-        int cooldownMinutes = settings.EnigmaCooldownMinutes > 0 ? settings.EnigmaCooldownMinutes : profile.AttemptCooldownMinutes;
+        int cooldownMinutes = profile.AttemptCooldownMinutes;
 
         List<EnigmaRotorStateDto> rotors = profile.RotorDefinitions
             .OrderBy(x => x.DisplayOrder)
@@ -159,8 +158,7 @@ public sealed class EnigmaService
         }
 
         EnigmaProfile profile = await GetCurrentProfileAsync(cancellationToken);
-        GlobalSettings settings = await GetGlobalSettingsAsync(cancellationToken);
-        int cooldownMinutes = settings.EnigmaCooldownMinutes > 0 ? settings.EnigmaCooldownMinutes : profile.AttemptCooldownMinutes;
+        int cooldownMinutes = profile.AttemptCooldownMinutes;
 
         if (await HasSuccessfulAttemptAsync(team.Id, profile.Id, cancellationToken))
         {
@@ -367,4 +365,5 @@ public sealed class EnigmaService
         return await _dbContext.GlobalSettings.FirstOrDefaultAsync(cancellationToken)
             ?? new GlobalSettings();
     }
+
 }

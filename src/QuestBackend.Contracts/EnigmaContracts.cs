@@ -6,6 +6,7 @@ public sealed record EnigmaRotorDefinitionDto(
     Guid TagId,
     string TagName,
     string Color,
+    string? ColorOverride,
     string Label,
     int DisplayOrder,
     int PositionMin,

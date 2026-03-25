@@ -29,6 +29,8 @@ public sealed record QuestionResponse(
     string? SupportNotes,
     QuestionAnswerSchemaDto AnswerSchema);
 
+public sealed record QuestionImageUploadResponse(string ImageUrl);
+
 public sealed record QuestionPoolEntryRequest(Guid QuestionId, int Position, bool IsEnabled, string? Notes);
 
 public sealed record QuestionPoolUpsertRequest(Guid TagId, string Name, bool IsActive, bool IsArchived, string? Description, int SortOrder, IReadOnlyList<QuestionPoolEntryRequest> Entries);
