@@ -43,7 +43,7 @@ public sealed class TeamService
 
         return teams
             .Where(t => t.Memberships.Count(m => m.Status == TeamMembershipStatus.Active) < maxMembers)
-            .Select(ToResponse)
+            .Select(t => ToResponse(t, null))
             .ToList();
     }
 
@@ -59,10 +59,12 @@ public sealed class TeamService
 
         await EnsureParticipantHasNoActiveTeamAsync(participantId, cancellationToken);
 
+        string joinSecret = request.JoinSecret.Trim();
         Team team = new()
         {
             Name = request.Name.Trim(),
-            JoinSecretHash = _passwordHasher.Hash(request.JoinSecret),
+            JoinSecretHash = _passwordHasher.Hash(joinSecret),
+            JoinSecretPlaintext = joinSecret,
             CreatedByUserId = participantId,
             CreatedAt = _clock.UtcNow,
             UpdatedAt = _clock.UtcNow,
@@ -82,7 +84,7 @@ public sealed class TeamService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         Team loaded = await LoadTeamAsync(team.Id, cancellationToken);
-        return ToResponse(loaded);
+        return ToResponse(loaded, participantId);
     }
 
     public async Task<TeamSummaryResponse> JoinTeamAsync(JoinTeamRequest request, CancellationToken cancellationToken = default)
@@ -127,7 +129,7 @@ public sealed class TeamService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         Team loaded = await LoadTeamAsync(team.Id, cancellationToken);
-        return ToResponse(loaded);
+        return ToResponse(loaded, participantId);
     }
 
     public async Task<TeamSummaryResponse?> GetMyTeamAsync(CancellationToken cancellationToken = default)
@@ -148,7 +150,51 @@ public sealed class TeamService
         }
 
         Team team = await LoadTeamAsync(membership.TeamId, cancellationToken);
-        return ToResponse(team);
+        return ToResponse(team, _currentPrincipal.ParticipantUserId);
+    }
+
+    public async Task<TeamSummaryResponse> UpdateMyTeamJoinSecretAsync(
+        UpdateTeamJoinSecretRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        Guid participantId = EnsureParticipant();
+
+        TeamMembership? membership = await _dbContext.TeamMemberships
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                x => x.ParticipantUserId == participantId && x.Status == TeamMembershipStatus.Active,
+                cancellationToken);
+
+        if (membership is null)
+        {
+            throw new AppException(404, "Нет активной команды.");
+        }
+
+        Team team = await _dbContext.Teams.SingleAsync(x => x.Id == membership.TeamId, cancellationToken);
+
+        if (team.CreatedByUserId != participantId)
+        {
+            throw new AppException(403, "Менять секрет может только капитан команды.");
+        }
+
+        if (team.Status != TeamStatus.Active)
+        {
+            throw new AppException(409, "Команда недоступна для изменения секрета.");
+        }
+
+        string secret = request.JoinSecret.Trim();
+        if (secret.Length < 3)
+        {
+            throw new AppException(400, "Секрет для вступления должен быть не короче 3 символов.");
+        }
+
+        team.JoinSecretHash = _passwordHasher.Hash(secret);
+        team.JoinSecretPlaintext = secret;
+        team.UpdatedAt = _clock.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        Team loaded = await LoadTeamAsync(team.Id, cancellationToken);
+        return ToResponse(loaded, participantId);
     }
 
     /// <summary>Validates captain, enigma solved, no photo yet, lifecycle — call before writing file to disk.</summary>
@@ -167,8 +213,9 @@ public sealed class TeamService
         team.UpdatedAt = _clock.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        Guid captainId = EnsureParticipant();
         Team reloaded = await LoadTeamAsync(team.Id, cancellationToken);
-        return ToResponse(reloaded);
+        return ToResponse(reloaded, captainId);
     }
 
     private async Task<Team> LoadAndValidateTeamForFinalPhotoAsync(CancellationToken cancellationToken)
@@ -235,8 +282,15 @@ public sealed class TeamService
             .SingleOrDefaultAsync(x => x.Id == membership.TeamId, cancellationToken);
     }
 
-    public static TeamSummaryResponse ToResponse(Team team) =>
-        new(
+    public static TeamSummaryResponse ToResponse(Team team, Guid? joinSecretVisibleToParticipantId = null)
+    {
+        string? joinSecretForCaptain =
+            joinSecretVisibleToParticipantId is not null
+            && team.CreatedByUserId == joinSecretVisibleToParticipantId
+                ? team.JoinSecretPlaintext
+                : null;
+
+        return new TeamSummaryResponse(
             team.Id,
             team.Name,
             team.Status.ToString(),
@@ -248,6 +302,7 @@ public sealed class TeamService
             team.CreatedByUserId,
             team.FinalTaskPhotoUrl,
             team.FinalTaskPhotoUploadedAt,
+            joinSecretForCaptain,
             team.Memberships
                 .Where(x => x.Status == TeamMembershipStatus.Active)
                 .OrderBy(x => x.JoinedAt)
@@ -261,6 +316,7 @@ public sealed class TeamService
                         x.ParticipantUser.AvatarUrl,
                         x.ParticipantUser.Provider))
                 .ToList());
+    }
 
     private Guid EnsureParticipant()
     {

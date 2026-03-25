@@ -40,6 +40,12 @@ public static class TeamEndpoints
                     Results.Ok(await service.JoinTeamAsync(request, cancellationToken)))
             .RequireAuthorization(ApiPolicies.ParticipantOnly);
 
+        group.MapPut(
+                "/me/join-secret",
+                async (UpdateTeamJoinSecretRequest request, TeamService service, CancellationToken cancellationToken) =>
+                    Results.Ok(await service.UpdateMyTeamJoinSecretAsync(request, cancellationToken)))
+            .RequireAuthorization(ApiPolicies.ParticipantOnly);
+
         group.MapPost(
                 "/me/final-task-photo",
                 async (

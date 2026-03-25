@@ -37,7 +37,7 @@ public sealed class SupportService
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
 
-        return teams.Select(TeamService.ToResponse).ToList();
+        return teams.Select(t => TeamService.ToResponse(t, null)).ToList();
     }
 
     public async Task<TeamSupportDetailsResponse> GetTeamDetailsAsync(Guid teamId, CancellationToken cancellationToken = default)
@@ -75,7 +75,7 @@ public sealed class SupportService
             .ToListAsync(cancellationToken);
 
         return new TeamSupportDetailsResponse(
-            TeamService.ToResponse(team),
+            TeamService.ToResponse(team, null),
             questions
                 .Select(
                     x => new QuestionSummaryResponse(

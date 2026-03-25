@@ -24,6 +24,9 @@ public sealed class Team : EntityBase
 
     public string JoinSecretHash { get; set; } = string.Empty;
 
+    /// <summary>Plaintext join secret for captain display only (legacy teams may be null).</summary>
+    public string? JoinSecretPlaintext { get; set; }
+
     public TeamStatus Status { get; set; } = TeamStatus.Active;
 
     public Guid? CreatedByUserId { get; set; }
