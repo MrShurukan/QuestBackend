@@ -71,6 +71,7 @@ public sealed class ParticipantAuthService
             PasswordHash = _passwordHasher.Hash(password),
             AvatarUrl = avatarUrl,
             LastSeenAt = _clock.UtcNow,
+            PersonalDataConsentAcceptedAt = _clock.UtcNow,
         };
 
         await _dbContext.ParticipantUsers.AddAsync(participant, cancellationToken);

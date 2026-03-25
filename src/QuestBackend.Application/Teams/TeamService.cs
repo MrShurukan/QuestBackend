@@ -24,6 +24,8 @@ public sealed class TeamService
 
     public async Task<IReadOnlyList<TeamSummaryResponse>> GetAvailableTeamsAsync(CancellationToken cancellationToken = default)
     {
+        int maxMembers = await ResolveMaxTeamMembersAsync(cancellationToken);
+
         List<Team> teams = await _dbContext.Teams
             .AsNoTracking()
             .Include(x => x.Memberships.Where(m => m.Status == TeamMembershipStatus.Active))
@@ -32,7 +34,10 @@ public sealed class TeamService
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
 
-        return teams.Select(ToResponse).ToList();
+        return teams
+            .Where(t => t.Memberships.Count(m => m.Status == TeamMembershipStatus.Active) < maxMembers)
+            .Select(ToResponse)
+            .ToList();
     }
 
     public async Task<TeamSummaryResponse> CreateTeamAsync(CreateTeamRequest request, CancellationToken cancellationToken = default)

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
 using FluentAssertions;
 using QuestBackend.Contracts;
@@ -8,6 +9,22 @@ namespace QuestBackend.IntegrationTests;
 
 public sealed class ParticipantAuthSessionFlowTests
 {
+    [Fact]
+    public async Task Register_WithoutPersonalDataConsent_ShouldReturn400()
+    {
+        await using QuestBackendApiFactory factory = new();
+        await factory.InitializeAsync();
+        await factory.ResetDatabaseAsync();
+
+        using MultipartFormDataContent content = new();
+        content.Add(new StringContent("no-consent"), "login");
+        content.Add(new StringContent("No Consent"), "displayName");
+        content.Add(new StringContent("Testpass12"), "password");
+
+        HttpResponseMessage response = await factory.CreateCookieClient().PostAsync("/api/participant/auth/register", content);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     [Fact]
     public async Task Participant_Logout_ShouldDropSession_Login_ShouldRestore()
     {

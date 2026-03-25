@@ -33,6 +33,12 @@ public static class ParticipantAuthEndpoints
                 string login = form["login"].ToString();
                 string displayName = form["displayName"].ToString();
                 string password = form["password"].ToString();
+                string consentRaw = form["acceptPersonalDataProcessing"].ToString();
+                if (!string.Equals(consentRaw, "true", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new AppException(400, "Нужно согласие на обработку персональных данных.");
+                }
+
                 IFormFile? avatar = form.Files.GetFile("avatar");
 
                 string? avatarUrl = await TrySaveAvatarAsync(avatar, environment.WebRootPath, cancellationToken);

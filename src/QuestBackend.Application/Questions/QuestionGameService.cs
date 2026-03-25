@@ -295,7 +295,8 @@ public sealed class QuestionGameService
             state.IsSolved,
             state.NextAllowedAnswerAt,
             state.LastAttemptAt,
-            state.FirstUnlockedAt);
+            state.FirstUnlockedAt,
+            state.IsSolved ? state.Question.FooterHint : string.Empty);
 
     private static QuestionDetailsResponse ToQuestionDetailsResponse(TeamQuestionState state) =>
         new(

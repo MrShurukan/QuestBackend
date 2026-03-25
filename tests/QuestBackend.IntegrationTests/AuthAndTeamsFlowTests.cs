@@ -86,5 +86,10 @@ public sealed class AuthAndTeamsFlowTests
 
         HttpResponseMessage secondJoin = await extraClient.PostAsJsonAsync("/api/teams/join", new JoinTeamRequest(team.Id, "secret"));
         secondJoin.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        HttpResponseMessage availableWhenFull = await extraClient.GetAsync("/api/teams/available");
+        availableWhenFull.EnsureSuccessStatusCode();
+        List<TeamSummaryResponse> availableTeams = (await availableWhenFull.Content.ReadFromJsonAsync<List<TeamSummaryResponse>>())!;
+        availableTeams.Should().NotContain(x => x.Id == team.Id);
     }
 }

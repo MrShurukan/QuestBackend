@@ -262,6 +262,7 @@ public sealed class QuestBackendApiFactory : WebApplicationFactory<Program>
         content.Add(new StringContent(login), "login");
         content.Add(new StringContent(displayName), "displayName");
         content.Add(new StringContent(password), "password");
+        content.Add(new StringContent("true"), "acceptPersonalDataProcessing");
         HttpResponseMessage response = await client.PostAsync("/api/participant/auth/register", content);
         response.EnsureSuccessStatusCode();
     }

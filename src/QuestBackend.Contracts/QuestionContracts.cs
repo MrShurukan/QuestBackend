@@ -19,7 +19,8 @@ public sealed record QuestionSummaryResponse(
     bool IsSolved,
     DateTimeOffset? NextAllowedAnswerAt,
     DateTimeOffset? LastAttemptAt,
-    DateTimeOffset FirstUnlockedAt);
+    DateTimeOffset FirstUnlockedAt,
+    string FooterHint);
 
 public sealed record QuestionDetailsResponse(
     Guid Id,

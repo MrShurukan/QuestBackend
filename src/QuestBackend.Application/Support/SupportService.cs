@@ -87,7 +87,8 @@ public sealed class SupportService
                         x.IsSolved,
                         x.NextAllowedAnswerAt,
                         x.LastAttemptAt,
-                        x.FirstUnlockedAt))
+                        x.FirstUnlockedAt,
+                        x.Question.FooterHint))
                 .ToList(),
             audit);
     }

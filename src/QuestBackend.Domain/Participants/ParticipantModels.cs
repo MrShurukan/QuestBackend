@@ -17,6 +17,9 @@ public sealed class ParticipantUser : EntityBase
 
     public DateTimeOffset? LastSeenAt { get; set; }
 
+    /// <summary>When the user accepted personal data processing terms at registration (local auth).</summary>
+    public DateTimeOffset? PersonalDataConsentAcceptedAt { get; set; }
+
     public bool IsBlocked { get; set; }
 
     public List<TeamMembership> Memberships { get; set; } = [];
