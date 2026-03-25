@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -29,6 +30,8 @@ namespace QuestBackend.IntegrationTests.Infrastructure;
 /// </summary>
 public sealed class QuestBackendApiFactory : WebApplicationFactory<Program>
 {
+    private static readonly byte[] TinyPng = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
     private readonly string _adminLogin = $"admin-{Guid.NewGuid():N}";
     private readonly string _adminPassword = "admin123";
 
@@ -215,6 +218,8 @@ public sealed class QuestBackendApiFactory : WebApplicationFactory<Program>
             blueQuestion.Id,
             redQuestion.Id,
             secondBlueQuestion?.Id,
+            bluePool.Id,
+            redPool.Id,
             blueQr.Id,
             redQr.Id,
             "blue0001",
@@ -243,6 +248,18 @@ public sealed class QuestBackendApiFactory : WebApplicationFactory<Program>
         await dbContext.SaveChangesAsync();
     }
 
+    public async Task SetLatestEnigmaCooldownAsync(Guid teamId, Guid enigmaProfileId, DateTimeOffset? value)
+    {
+        using IServiceScope scope = Services.CreateScope();
+        QuestDbContext dbContext = scope.ServiceProvider.GetRequiredService<QuestDbContext>();
+        EnigmaAttempt attempt = await dbContext.EnigmaAttempts
+            .Where(x => x.TeamId == teamId && x.EnigmaProfileId == enigmaProfileId)
+            .OrderByDescending(x => x.AttemptedAt)
+            .FirstAsync();
+        attempt.CooldownAppliedUntil = value;
+        await dbContext.SaveChangesAsync();
+    }
+
     public async Task<Team> GetTeamByNameAsync(string name)
     {
         using IServiceScope scope = Services.CreateScope();
@@ -266,6 +283,62 @@ public sealed class QuestBackendApiFactory : WebApplicationFactory<Program>
         HttpResponseMessage response = await client.PostAsync("/api/participant/auth/register", content);
         response.EnsureSuccessStatusCode();
     }
+
+    public async Task<T> WithDbContextAsync<T>(Func<QuestDbContext, Task<T>> action)
+    {
+        using IServiceScope scope = Services.CreateScope();
+        QuestDbContext dbContext = scope.ServiceProvider.GetRequiredService<QuestDbContext>();
+        return await action(dbContext);
+    }
+
+    public async Task WithDbContextAsync(Func<QuestDbContext, Task> action)
+    {
+        using IServiceScope scope = Services.CreateScope();
+        QuestDbContext dbContext = scope.ServiceProvider.GetRequiredService<QuestDbContext>();
+        await action(dbContext);
+    }
+
+    public async Task<HttpResponseMessage> PostImageAsync(
+        HttpClient client,
+        string url,
+        string fieldName,
+        string fileName = "image.png",
+        string contentType = "image/png",
+        byte[]? content = null)
+    {
+        using MultipartFormDataContent form = CreateImageForm(fieldName, fileName, contentType, content);
+        return await client.PostAsync(url, form);
+    }
+
+    public async Task<QuestionImageUploadResponse> UploadQuestionImageAsync(
+        HttpClient client,
+        string fileName = "question.png",
+        string contentType = "image/png",
+        byte[]? content = null)
+    {
+        HttpResponseMessage response = await PostImageAsync(
+            client,
+            "/api/admin/questions/upload-image",
+            "image",
+            fileName,
+            contentType,
+            content);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<QuestionImageUploadResponse>())!;
+    }
+
+    private static MultipartFormDataContent CreateImageForm(
+        string fieldName,
+        string fileName,
+        string contentType,
+        byte[]? content)
+    {
+        MultipartFormDataContent form = new();
+        ByteArrayContent file = new(content ?? TinyPng);
+        file.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        form.Add(file, fieldName, fileName);
+        return form;
+    }
 }
 
 public sealed record SeededGameConfig(
@@ -274,6 +347,8 @@ public sealed record SeededGameConfig(
     Guid BlueQuestionId,
     Guid RedQuestionId,
     Guid? SecondBlueQuestionId,
+    Guid BluePoolId,
+    Guid RedPoolId,
     Guid BlueQrId,
     Guid RedQrId,
     string BlueSlug,

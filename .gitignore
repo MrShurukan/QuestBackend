@@ -31,5 +31,7 @@ Properties/launchSettings.json
 # Uploaded participant avatars (directory kept via .gitkeep)
 src/QuestBackend.Api/wwwroot/uploads/avatars/*
 src/QuestBackend.Api/wwwroot/uploads/team-final/*
+src/QuestBackend.Api/wwwroot/uploads/questions/*
 !src/QuestBackend.Api/wwwroot/uploads/avatars/.gitkeep
 !src/QuestBackend.Api/wwwroot/uploads/team-final/.gitkeep
+!src/QuestBackend.Api/wwwroot/uploads/questions/.gitkeep

@@ -47,10 +47,14 @@ public sealed class AdminConfigurationService
 
     public async Task<TagResponse> CreateTagAsync(TagUpsertRequest request, CancellationToken cancellationToken = default)
     {
+        string code = request.Code.Trim();
+        string name = request.Name.Trim();
+        await EnsureTagUniquenessAsync(code, name, null, cancellationToken);
+
         QuestionTag tag = new()
         {
-            Code = request.Code.Trim(),
-            Name = request.Name.Trim(),
+            Code = code,
+            Name = name,
             Color = request.Color,
             IsActive = request.IsActive,
             SortOrder = request.SortOrder,
@@ -68,9 +72,13 @@ public sealed class AdminConfigurationService
 
     public async Task<TagResponse> UpdateTagAsync(Guid id, TagUpsertRequest request, CancellationToken cancellationToken = default)
     {
+        string code = request.Code.Trim();
+        string name = request.Name.Trim();
+        await EnsureTagUniquenessAsync(code, name, id, cancellationToken);
+
         QuestionTag tag = await _dbContext.QuestionTags.SingleAsync(x => x.Id == id, cancellationToken);
-        tag.Code = request.Code.Trim();
-        tag.Name = request.Name.Trim();
+        tag.Code = code;
+        tag.Name = name;
         tag.Color = request.Color;
         tag.IsActive = request.IsActive;
         tag.SortOrder = request.SortOrder;
@@ -216,7 +224,6 @@ public sealed class AdminConfigurationService
     public async Task<QuestionPoolResponse> UpdatePoolAsync(Guid id, QuestionPoolUpsertRequest request, CancellationToken cancellationToken = default)
     {
         QuestionPool pool = await _dbContext.QuestionPools
-            .Include(x => x.Entries)
             .SingleAsync(x => x.Id == id, cancellationToken);
 
         pool.TagId = request.TagId;
@@ -227,12 +234,12 @@ public sealed class AdminConfigurationService
         pool.SortOrder = request.SortOrder;
         pool.UpdatedAt = _clock.UtcNow;
 
-        _dbContext.QuestionPoolEntries.RemoveRange(pool.Entries);
-        pool.Entries = request.Entries
+        List<QuestionPoolEntry> updatedEntries = request.Entries
             .OrderBy(x => x.Position)
             .Select(
                 x => new QuestionPoolEntry
                 {
+                    PoolId = pool.Id,
                     QuestionId = x.QuestionId,
                     Position = x.Position,
                     IsEnabled = x.IsEnabled,
@@ -242,10 +249,37 @@ public sealed class AdminConfigurationService
                 })
             .ToList();
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _dbContext.QuestionPoolEntries
+                .Where(x => x.PoolId == id)
+                .ExecuteDeleteAsync(cancellationToken);
+
+            await _dbContext.QuestionPoolEntries.AddRangeAsync(updatedEntries, cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
         await _auditWriter.WriteAsync("UpdatePool", nameof(QuestionPool), pool.Id.ToString(), AppJson.Serialize(request), null, cancellationToken);
 
-        return ToPoolResponse(pool);
+        return new QuestionPoolResponse(
+            pool.Id,
+            pool.TagId,
+            pool.Name,
+            pool.IsActive,
+            pool.IsArchived,
+            pool.Description,
+            pool.SortOrder,
+            updatedEntries
+                .OrderBy(x => x.Position)
+                .Select(x => new QuestionPoolEntryResponse(x.Id, x.QuestionId, x.Position, x.IsEnabled, x.Notes))
+                .ToList());
     }
 
     public async Task<IReadOnlyList<QrCodeResponse>> GetQrCodesAsync(CancellationToken cancellationToken = default)
@@ -259,11 +293,15 @@ public sealed class AdminConfigurationService
 
     public async Task<QrCodeResponse> CreateQrCodeAsync(QrCodeUpsertRequest request, CancellationToken cancellationToken = default)
     {
+        string slug = request.Slug.Trim();
+        string label = request.Label.Trim();
+        await EnsureQrSlugIsUniqueAsync(slug, null, cancellationToken);
+
         QrCode qrCode = new()
         {
             TagId = request.TagId,
-            Slug = request.Slug.Trim(),
-            Label = request.Label.Trim(),
+            Slug = slug,
+            Label = label,
             SlotIndex = request.SlotIndex,
             IsActive = request.IsActive,
             Notes = request.Notes,
@@ -280,10 +318,14 @@ public sealed class AdminConfigurationService
 
     public async Task<QrCodeResponse> UpdateQrCodeAsync(Guid id, QrCodeUpsertRequest request, CancellationToken cancellationToken = default)
     {
+        string slug = request.Slug.Trim();
+        string label = request.Label.Trim();
+        await EnsureQrSlugIsUniqueAsync(slug, id, cancellationToken);
+
         QrCode qrCode = await _dbContext.QrCodes.SingleAsync(x => x.Id == id, cancellationToken);
         qrCode.TagId = request.TagId;
-        qrCode.Slug = request.Slug.Trim();
-        qrCode.Label = request.Label.Trim();
+        qrCode.Slug = slug;
+        qrCode.Label = label;
         qrCode.SlotIndex = request.SlotIndex;
         qrCode.IsActive = request.IsActive;
         qrCode.Notes = request.Notes;
@@ -346,7 +388,6 @@ public sealed class AdminConfigurationService
     public async Task<RoutingProfileResponse> UpdateRoutingProfileAsync(Guid id, RoutingProfileUpsertRequest request, CancellationToken cancellationToken = default)
     {
         RoutingProfile profile = await _dbContext.RoutingProfiles
-            .Include(x => x.TagStates)
             .SingleAsync(x => x.Id == id, cancellationToken);
 
         profile.Name = request.Name.Trim();
@@ -354,11 +395,11 @@ public sealed class AdminConfigurationService
         profile.IsActive = request.IsActive;
         profile.UpdatedAt = _clock.UtcNow;
 
-        _dbContext.RoutingProfileTagStates.RemoveRange(profile.TagStates);
-        profile.TagStates = request.TagStates
+        List<RoutingProfileTagState> updatedTagStates = request.TagStates
             .Select(
                 x => new RoutingProfileTagState
                 {
+                    RoutingProfileId = profile.Id,
                     TagId = x.TagId,
                     ActivePoolId = x.ActivePoolId,
                     RotationOffset = x.RotationOffset,
@@ -369,15 +410,47 @@ public sealed class AdminConfigurationService
                 })
             .ToList();
 
-        if (request.IsActive)
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            await ActivateRoutingProfileInternalAsync(profile, cancellationToken);
+            await _dbContext.RoutingProfileTagStates
+                .Where(x => x.RoutingProfileId == id)
+                .ExecuteDeleteAsync(cancellationToken);
+
+            await _dbContext.RoutingProfileTagStates.AddRangeAsync(updatedTagStates, cancellationToken);
+
+            if (request.IsActive)
+            {
+                await ActivateRoutingProfileInternalAsync(profile, cancellationToken);
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
         await _auditWriter.WriteAsync("UpdateRoutingProfile", nameof(RoutingProfile), profile.Id.ToString(), AppJson.Serialize(request), null, cancellationToken);
 
-        return ToRoutingProfileResponse(profile);
+        return new RoutingProfileResponse(
+            profile.Id,
+            profile.Name,
+            profile.IsActive,
+            profile.Description,
+            updatedTagStates
+                .OrderBy(x => x.TagId)
+                .Select(
+                    x => new RoutingProfileTagStateResponse(
+                        x.Id,
+                        x.TagId,
+                        x.ActivePoolId,
+                        x.RotationOffset,
+                        x.SelectionMode.ToString(),
+                        x.IsEnabled))
+                .ToList());
     }
 
     public async Task ActivateRoutingProfileAsync(Guid id, CancellationToken cancellationToken = default)
@@ -700,6 +773,33 @@ public sealed class AdminConfigurationService
         await _dbContext.GlobalSettings.AddAsync(settings, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return settings;
+    }
+
+    private async Task EnsureTagUniquenessAsync(string code, string name, Guid? currentId, CancellationToken cancellationToken)
+    {
+        bool duplicateCode = await _dbContext.QuestionTags
+            .AnyAsync(x => x.Code == code && (!currentId.HasValue || x.Id != currentId.Value), cancellationToken);
+        if (duplicateCode)
+        {
+            throw new AppException(409, "Тег с таким кодом уже существует.");
+        }
+
+        bool duplicateName = await _dbContext.QuestionTags
+            .AnyAsync(x => x.Name == name && (!currentId.HasValue || x.Id != currentId.Value), cancellationToken);
+        if (duplicateName)
+        {
+            throw new AppException(409, "Тег с таким названием уже существует.");
+        }
+    }
+
+    private async Task EnsureQrSlugIsUniqueAsync(string slug, Guid? currentId, CancellationToken cancellationToken)
+    {
+        bool duplicateSlug = await _dbContext.QrCodes
+            .AnyAsync(x => x.Slug == slug && (!currentId.HasValue || x.Id != currentId.Value), cancellationToken);
+        if (duplicateSlug)
+        {
+            throw new AppException(409, "QR с таким slug уже существует.");
+        }
     }
 
     private static QuestionStatus ParseQuestionStatus(string status) =>
