@@ -41,6 +41,11 @@ public sealed class Team : EntityBase
 
     public Guid? EnigmaSolvedProfileId { get; set; }
 
+    /// <summary>Relative URL under wwwroot (captain upload after enigma solved).</summary>
+    public string? FinalTaskPhotoUrl { get; set; }
+
+    public DateTimeOffset? FinalTaskPhotoUploadedAt { get; set; }
+
     public List<TeamMembership> Memberships { get; set; } = [];
 
     public List<TeamQuestionState> QuestionStates { get; set; } = [];

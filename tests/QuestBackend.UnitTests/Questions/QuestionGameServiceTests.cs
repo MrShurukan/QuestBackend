@@ -66,7 +66,7 @@ public sealed class QuestionGameServiceTests
         await dbContext.AddRangeAsync(participant, team, membership, tag, question, state, settings);
         await dbContext.SaveChangesAsync();
 
-        TeamService teamService = new(dbContext, new FakePasswordHasher(), principal, clock);
+        TeamService teamService = new(dbContext, new FakePasswordHasher(), principal, clock, new AlwaysOpenLifecycleGate());
         QuestionGameService service = new(
             dbContext,
             new StaticQuestionRoutingResolver(new QuestionRoutingResolution(QrScanResolutionResult.Resolved, null, question, "resolved")),
@@ -136,7 +136,7 @@ public sealed class QuestionGameServiceTests
         await dbContext.AddRangeAsync(participant, team, membership, tag, question, state, settings);
         await dbContext.SaveChangesAsync();
 
-        TeamService teamService = new(dbContext, new FakePasswordHasher(), principal, clock);
+        TeamService teamService = new(dbContext, new FakePasswordHasher(), principal, clock, new AlwaysOpenLifecycleGate());
         QuestionGameService service = new(
             dbContext,
             new StaticQuestionRoutingResolver(new QuestionRoutingResolution(QrScanResolutionResult.Resolved, null, question, "resolved")),

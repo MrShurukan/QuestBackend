@@ -13,13 +13,20 @@ public sealed class TeamService
     private readonly ICurrentPrincipal _currentPrincipal;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IQuestDbContext _dbContext;
+    private readonly IQuestDayLifecycleGate _questDayLifecycleGate;
 
-    public TeamService(IQuestDbContext dbContext, IPasswordHasher passwordHasher, ICurrentPrincipal currentPrincipal, IClock clock)
+    public TeamService(
+        IQuestDbContext dbContext,
+        IPasswordHasher passwordHasher,
+        ICurrentPrincipal currentPrincipal,
+        IClock clock,
+        IQuestDayLifecycleGate questDayLifecycleGate)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
         _currentPrincipal = currentPrincipal;
         _clock = clock;
+        _questDayLifecycleGate = questDayLifecycleGate;
     }
 
     public async Task<IReadOnlyList<TeamSummaryResponse>> GetAvailableTeamsAsync(CancellationToken cancellationToken = default)
@@ -144,6 +151,69 @@ public sealed class TeamService
         return ToResponse(team);
     }
 
+    /// <summary>Validates captain, enigma solved, no photo yet, lifecycle — call before writing file to disk.</summary>
+    public async Task EnsureFinalTaskPhotoUploadAllowedAsync(CancellationToken cancellationToken = default)
+    {
+        _ = await LoadAndValidateTeamForFinalPhotoAsync(cancellationToken);
+    }
+
+    /// <summary>Captain-only, after enigma solved, one photo per team. Caller saves file to disk first, then passes relative URL.</summary>
+    public async Task<TeamSummaryResponse> RecordFinalTaskPhotoAsync(string relativeUrl, CancellationToken cancellationToken = default)
+    {
+        Team team = await LoadAndValidateTeamForFinalPhotoAsync(cancellationToken);
+
+        team.FinalTaskPhotoUrl = relativeUrl;
+        team.FinalTaskPhotoUploadedAt = _clock.UtcNow;
+        team.UpdatedAt = _clock.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        Team reloaded = await LoadTeamAsync(team.Id, cancellationToken);
+        return ToResponse(reloaded);
+    }
+
+    private async Task<Team> LoadAndValidateTeamForFinalPhotoAsync(CancellationToken cancellationToken)
+    {
+        Guid participantId = EnsureParticipant();
+
+        QuestLifecycleDecision lifecycle = await _questDayLifecycleGate.GetDecisionAsync(cancellationToken);
+        if (!lifecycle.AllowsSubmissions)
+        {
+            throw new AppException(409, lifecycle.Message);
+        }
+
+        TeamMembership? membership = await _dbContext.TeamMemberships
+            .FirstOrDefaultAsync(
+                x => x.ParticipantUserId == participantId && x.Status == TeamMembershipStatus.Active,
+                cancellationToken);
+
+        if (membership is null)
+        {
+            throw new AppException(404, "Нет активной команды.");
+        }
+
+        Team team = await _dbContext.Teams
+            .Include(x => x.Memberships.Where(m => m.Status == TeamMembershipStatus.Active))
+            .ThenInclude(x => x.ParticipantUser)
+            .SingleAsync(x => x.Id == membership.TeamId, cancellationToken);
+
+        if (team.CreatedByUserId != participantId)
+        {
+            throw new AppException(403, "Загрузить фото может только капитан команды.");
+        }
+
+        if (team.EnigmaSolvedAt is null)
+        {
+            throw new AppException(409, "Фото доступно после успешной расшифровки Enigma.");
+        }
+
+        if (!string.IsNullOrEmpty(team.FinalTaskPhotoUrl))
+        {
+            throw new AppException(409, "Фотография уже выгружена. Разрешена только одна.");
+        }
+
+        return team;
+    }
+
     internal async Task<Team?> GetCurrentParticipantTeamEntityAsync(CancellationToken cancellationToken = default)
     {
         if (_currentPrincipal.ParticipantUserId is null)
@@ -175,6 +245,9 @@ public sealed class TeamService
             team.IsDisqualified,
             team.EnigmaSolvedAt is not null,
             team.EnigmaSolvedAt,
+            team.CreatedByUserId,
+            team.FinalTaskPhotoUrl,
+            team.FinalTaskPhotoUploadedAt,
             team.Memberships
                 .Where(x => x.Status == TeamMembershipStatus.Active)
                 .OrderBy(x => x.JoinedAt)

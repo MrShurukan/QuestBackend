@@ -13,6 +13,9 @@ public sealed record TeamSummaryResponse(
     bool IsDisqualified,
     bool EnigmaSolved,
     DateTimeOffset? EnigmaSolvedAt,
+    Guid? CreatedByParticipantId,
+    string? FinalTaskPhotoUrl,
+    DateTimeOffset? FinalTaskPhotoUploadedAt,
     IReadOnlyList<TeamMemberResponse> Members);
 
 public sealed record TeamMemberResponse(
