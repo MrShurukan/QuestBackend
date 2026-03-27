@@ -73,7 +73,8 @@ Operational notes live in `docs/runbook.md`.
 
 ## Participant authentication
 
-- Register: `POST /api/participant/auth/register` as `multipart/form-data` with `login`, `displayName`, `password`, and optional `avatar` (JPEG, PNG, or WebP, max 25 MB). Issues the participant cookie on success.
+- Register: `POST /api/participant/auth/register` as `multipart/form-data` with `login`, `displayName`, `password`, and optional `avatar` (JPEG, PNG, WebP, or HEIC/HEIF, max 25 MB). Issues the participant cookie on success.
+- Update avatar (authenticated): `POST /api/participant/auth/avatar` as `multipart/form-data` with field `avatar` (same formats and size limit).
 - Login: `POST /api/participant/auth/login` with JSON `{ "login", "password" }`.
 - Avatars are saved under `wwwroot/uploads/avatars` and served via static files at `/uploads/...`. In local full-stack setups, reverse-proxy or dev proxy must forward `/uploads` to the API if the SPA is on another origin/port.
 

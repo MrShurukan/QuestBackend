@@ -119,6 +119,23 @@ public sealed class ParticipantAuthService
         return participant is null ? null : ToResponse(participant);
     }
 
+    public async Task<ParticipantProfileResponse> UpdateAvatarAsync(string avatarRelativeUrl, CancellationToken cancellationToken = default)
+    {
+        if (!_currentPrincipal.IsParticipantAuthenticated || _currentPrincipal.ParticipantUserId is null)
+        {
+            throw new AppException(401, "Требуется вход участника.");
+        }
+
+        ParticipantUser participant = await _dbContext.ParticipantUsers
+            .SingleOrDefaultAsync(x => x.Id == _currentPrincipal.ParticipantUserId.Value, cancellationToken)
+            ?? throw new AppException(404, "Участник не найден.");
+
+        participant.AvatarUrl = avatarRelativeUrl;
+        participant.LastSeenAt = _clock.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return ToResponse(participant);
+    }
+
     public static ParticipantProfileResponse ToResponse(ParticipantUser participant) =>
         new(
             participant.Id,

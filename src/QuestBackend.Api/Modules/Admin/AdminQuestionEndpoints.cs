@@ -79,10 +79,10 @@ public static class AdminQuestionEndpoints
             throw new AppException(400, "Размер файла не больше 25 МБ.");
         }
 
-        string? extension = MapImageContentTypeToExtension(file.ContentType);
+        string? extension = ImageUploadContentTypeMapper.MapUploadToExtension(file.ContentType, file.FileName);
         if (extension is null)
         {
-            throw new AppException(400, "Допускаются только JPEG, PNG или WebP.");
+            throw new AppException(400, ImageUploadContentTypeMapper.AllowedFormatsMessage);
         }
 
         string root = string.IsNullOrEmpty(webRootPath)
@@ -100,16 +100,5 @@ public static class AdminQuestionEndpoints
         }
 
         return $"/uploads/questions/{fileName}";
-    }
-
-    private static string? MapImageContentTypeToExtension(string contentType)
-    {
-        return contentType switch
-        {
-            "image/jpeg" => ".jpg",
-            "image/png" => ".png",
-            "image/webp" => ".webp",
-            _ => null,
-        };
     }
 }

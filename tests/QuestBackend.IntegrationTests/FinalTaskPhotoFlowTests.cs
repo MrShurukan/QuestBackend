@@ -22,6 +22,27 @@ public sealed class FinalTaskPhotoFlowTests
         return form;
     }
 
+    private static MultipartFormDataContent CreateFinalPhotoFormHeic()
+    {
+        MultipartFormDataContent form = new();
+        ByteArrayContent file = new(TinyPng);
+        file.Headers.ContentType = new MediaTypeHeaderValue("image/heic");
+        form.Add(file, "photo", "final.heic");
+        return form;
+    }
+
+    /// <summary>
+    /// Many mobile browsers send HEIC as application/octet-stream; extension must disambiguate.
+    /// </summary>
+    private static MultipartFormDataContent CreateFinalPhotoFormHeicOctetStream()
+    {
+        MultipartFormDataContent form = new();
+        ByteArrayContent file = new(TinyPng);
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(file, "photo", "IMG_1234.heic");
+        return form;
+    }
+
     [Fact]
     public async Task FinalTaskPhoto_CaptainAfterEnigmaSolved_ShouldPersist_AndRejectSecondUpload()
     {
@@ -108,6 +129,80 @@ public sealed class FinalTaskPhotoFlowTests
         {
             HttpResponseMessage denied = await member.PostAsync("/api/teams/me/final-task-photo", form);
             denied.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
+    }
+
+    [Fact]
+    public async Task FinalTaskPhoto_HeicContentType_ShouldPersist()
+    {
+        await using QuestBackendApiFactory factory = new();
+        await factory.InitializeAsync();
+        await factory.ResetDatabaseAsync();
+
+        SeededGameConfig config = await factory.SeedBasicConfigurationAsync();
+        await factory.StartQuestDayAsync();
+
+        HttpClient captain = factory.CreateCookieClient();
+        await factory.RegisterParticipantAsync(captain, "cap-heic", "Captain Heic");
+        await captain.PostAsJsonAsync("/api/teams", new CreateTeamRequest("TeamHeic", "secret"));
+
+        await captain.GetAsync($"/api/public/qr/{config.BlueSlug}");
+        await captain.PostAsJsonAsync($"/api/questions/{config.BlueQuestionId}/answers", new SubmitAnswerRequest("5"));
+        Team teamEntity = await factory.GetTeamByNameAsync("TeamHeic");
+        await factory.SetNextAllowedAnswerAtAsync(teamEntity.Id, config.BlueQuestionId, DateTimeOffset.UtcNow.AddSeconds(-1));
+        await captain.PostAsJsonAsync($"/api/questions/{config.BlueQuestionId}/answers", new SubmitAnswerRequest("4"));
+
+        await captain.GetAsync($"/api/public/qr/{config.RedSlug}");
+        await captain.PostAsJsonAsync($"/api/questions/{config.RedQuestionId}/answers", new SubmitAnswerRequest("ENIGMA"));
+
+        await captain.PostAsJsonAsync(
+            "/api/enigma/attempts",
+            new SubmitEnigmaAttemptRequest(
+                new Dictionary<Guid, int> { [config.BlueTagId] = 4, [config.RedTagId] = 7 }));
+
+        using (MultipartFormDataContent form = CreateFinalPhotoFormHeic())
+        {
+            HttpResponseMessage response = await captain.PostAsync("/api/teams/me/final-task-photo", form);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            TeamSummaryResponse updated = (await response.Content.ReadFromJsonAsync<TeamSummaryResponse>())!;
+            updated.FinalTaskPhotoUrl.Should().Contain(".heic");
+        }
+    }
+
+    [Fact]
+    public async Task FinalTaskPhoto_HeicWithOctetStreamMime_ShouldUseFileExtension()
+    {
+        await using QuestBackendApiFactory factory = new();
+        await factory.InitializeAsync();
+        await factory.ResetDatabaseAsync();
+
+        SeededGameConfig config = await factory.SeedBasicConfigurationAsync();
+        await factory.StartQuestDayAsync();
+
+        HttpClient captain = factory.CreateCookieClient();
+        await factory.RegisterParticipantAsync(captain, "cap-heic-octet", "Captain Heic Octet");
+        await captain.PostAsJsonAsync("/api/teams", new CreateTeamRequest("TeamHeicOctet", "secret"));
+
+        await captain.GetAsync($"/api/public/qr/{config.BlueSlug}");
+        await captain.PostAsJsonAsync($"/api/questions/{config.BlueQuestionId}/answers", new SubmitAnswerRequest("5"));
+        Team teamEntity = await factory.GetTeamByNameAsync("TeamHeicOctet");
+        await factory.SetNextAllowedAnswerAtAsync(teamEntity.Id, config.BlueQuestionId, DateTimeOffset.UtcNow.AddSeconds(-1));
+        await captain.PostAsJsonAsync($"/api/questions/{config.BlueQuestionId}/answers", new SubmitAnswerRequest("4"));
+
+        await captain.GetAsync($"/api/public/qr/{config.RedSlug}");
+        await captain.PostAsJsonAsync($"/api/questions/{config.RedQuestionId}/answers", new SubmitAnswerRequest("ENIGMA"));
+
+        await captain.PostAsJsonAsync(
+            "/api/enigma/attempts",
+            new SubmitEnigmaAttemptRequest(
+                new Dictionary<Guid, int> { [config.BlueTagId] = 4, [config.RedTagId] = 7 }));
+
+        using (MultipartFormDataContent form = CreateFinalPhotoFormHeicOctetStream())
+        {
+            HttpResponseMessage response = await captain.PostAsync("/api/teams/me/final-task-photo", form);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            TeamSummaryResponse updated = (await response.Content.ReadFromJsonAsync<TeamSummaryResponse>())!;
+            updated.FinalTaskPhotoUrl.Should().Contain(".heic");
         }
     }
 }
